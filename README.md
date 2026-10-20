@@ -16,6 +16,8 @@
 
 과제 안내 원문은 팀 Private 저장소 `AIP-1-5/docs`에 있다. 두 저장소를 나란히 clone한다.
 
+교육장 네트워크는 밖으로 나가는 22번 포트를 막으므로, 보드에서는 먼저 `~/.ssh/config`에 GitHub SSH를 443번으로 우회하는 설정을 넣는다(`../docs/environment.md`의 네트워크 항목).
+
 ```bash
 mkdir -p ~/work && cd ~/work
 git clone git@github.com:AIP-1-5/docs.git

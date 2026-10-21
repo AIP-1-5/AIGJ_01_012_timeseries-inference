@@ -1,0 +1,24 @@
+# 과제 8 상시 추론 서비스 설정 (specs/008-inference-service)
+
+[data]
+collector_db = "data/collector.db"   # 과제 1 수집기 DB (같은 보드)
+collector_config = "config/collector.toml"
+history_hours = 26                   # 매분 읽는 과거 길이 (예측 2시간, 이상 탐지 규칙, 하루 주기 여유)
+stale_factor = 3                     # 센서 기대 간격의 이 배수 넘게 안 들어오면 '데이터 끊김'
+stale_min_minutes = 15
+
+[models]
+dir = "data/models"                  # export로 만든 모델 (커밋 안 함). 보드 B에서 만들어 보드 A로 복사
+
+[cycle]
+seconds = 60
+alert_repeat_minutes = 30            # 같은 경보는 상태가 바뀌거나 이 시간이 지나야 다시 보낸다
+
+[mqtt]
+enabled = true
+topic_prefix = "aip/team5/jaeung/inference"   # <prefix>/<공간 slug>/state (retained), <prefix>/alerts, <prefix>/status
+qos = 1
+
+[http]
+host = "0.0.0.0"                     # Tailscale 주소로 접근 (예: http://100.113.228.46:8080)
+port = 8080

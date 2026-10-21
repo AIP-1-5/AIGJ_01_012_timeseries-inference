@@ -1,0 +1,24 @@
+# 추론 서비스 systemd 템플릿. 직접 복사하지 말고 deploy/install-inference.sh로 설치한다.
+# @USER@, @REPO@는 설치 스크립트가 채운다. 서비스 이름은 inference-<계정>이다 (보드를 팀원과 같이 쓰므로).
+
+[Unit]
+Description=Inference service (assignment 8, @USER@)
+After=network-online.target collector-@USER@.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@REPO@
+EnvironmentFile=@REPO@/.env
+ExecStart=@REPO@/.venv/bin/python -m service --config @REPO@/config/service.toml run
+Restart=always
+RestartSec=5
+# 설정 오류(종료 코드 2)는 재시작해도 고쳐지지 않으므로 반복하지 않는다
+RestartPreventExitStatus=2
+Environment=PYTHONUNBUFFERED=1
+# 보드 메모리(8GB, GPU 공유)를 다른 서비스·LLM과 나눠 쓰므로 상한을 둔다
+MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target

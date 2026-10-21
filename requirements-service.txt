@@ -1,0 +1,8 @@
+# 과제 8 상시 추론 서비스 (보드 A). torch 없이 ONNX Runtime으로 돌린다.
+# scikit-learn은 data/models/manifest.json의 versions와 같은 버전으로 맞춘다 (분류기 피클).
+-r requirements.txt
+pandas>=2.2
+numpy>=1.26
+holidays>=0.50
+scikit-learn>=1.4
+onnxruntime>=1.18          # ARM64(aarch64) CPU 휠 있음

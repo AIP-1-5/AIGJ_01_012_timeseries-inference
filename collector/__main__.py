@@ -82,16 +82,19 @@ def cmd_export(args, config):
 def build_parser():
     parser = argparse.ArgumentParser(prog="python -m collector", description="MQTT 센서 데이터 수집기")
     parser.add_argument("--config", default=DEFAULT_CONFIG, help=f"설정 파일 (기본 {DEFAULT_CONFIG})")
+    # --config는 명령 앞뒤 어디에 써도 된다 (python -m collector status --config ...)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("run", help="수집기 실행").set_defaults(func=cmd_run)
+    sub.add_parser("run", parents=[common], help="수집기 실행").set_defaults(func=cmd_run)
 
-    p = sub.add_parser("status", help="지금 잘 쌓이고 있나")
+    p = sub.add_parser("status", parents=[common], help="지금 잘 쌓이고 있나")
     p.add_argument("--hours", type=float, default=24)
     p.add_argument("--space", help="이 공간만 보기")
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("report", help="수집 현황 보고서(Markdown)")
+    p = sub.add_parser("report", parents=[common], help="수집 현황 보고서(Markdown)")
     p.add_argument("--hours", type=float, default=24)
     p.add_argument("--from", dest="start", help="시작 (예: 2026-10-21T09:00, 한국 시간)")
     p.add_argument("--to", dest="end", help="끝 (예: 2026-10-22T09:00, 한국 시간)")
@@ -100,14 +103,14 @@ def build_parser():
     p.add_argument("--out", default="docs/reports/001-collection-status.md")
     p.set_defaults(func=cmd_report)
 
-    p = sub.add_parser("export", help="학습용 CSV 내보내기")
+    p = sub.add_parser("export", parents=[common], help="학습용 CSV 내보내기")
     p.add_argument("--from", dest="start", required=True, help="시작 날짜·시각 (한국 시간)")
     p.add_argument("--to", dest="end", required=True, help="끝 날짜·시각 (한국 시간, 포함 안 함)")
     p.add_argument("--metric", action="append", help="항목만 고르기 (여러 번 가능)")
     p.add_argument("--out", default="data/export.csv")
     p.set_defaults(func=cmd_export)
 
-    p = sub.add_parser("check-config", help="설정 점검, 샘플 메시지 해석")
+    p = sub.add_parser("check-config", parents=[common], help="설정 점검, 샘플 메시지 해석")
     p.add_argument("--sample", help="해석해 볼 메시지 파일(JSON)")
     p.add_argument("--topic", help="샘플의 토픽 (생략하면 첫 번째 소스)")
     p.set_defaults(func=cmd_check_config)

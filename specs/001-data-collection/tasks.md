@@ -105,14 +105,14 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 
 ### Tests for User Story 3
 
-- [ ] T024 [P] [US3] `tests/test_coverage.py` 작성: 간격 1·2·10분 센서의 커버율과 1분 기준 커버율, 결측 구간("연속 빈 칸이 기대 간격 × 2 이상"), 원인 규칙 순서(수집기 사건 → `fCnt` 차이 2 이상 → `fCnt` 이어짐·배터리 낮음), 끊김 표시("`max(5분, 기대 간격 × 3)` 이상"), 시험 시간대 제외 옵션
+- [x] T024 [P] [US3] `tests/test_coverage.py` 작성: 간격 1·2·10분 센서의 커버율과 1분 기준 커버율, 결측 구간("연속 빈 칸이 기대 간격 × 2 이상"), 원인 규칙 순서(수집기 사건 → `fCnt` 차이 2 이상 → `fCnt` 이어짐·배터리 낮음), 끊김 표시("`max(5분, 기대 간격 × 3)` 이상"), 시험 시간대 제외 옵션
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] `collector/coverage.py` 구현: 커버율(센서·항목별, 공간별 묶음, 1분 기준 병기), 결측 구간, 원인 추정과 근거(research.md R8), 끊김 판정, 시계 점검(`received_at - measured_at` 중앙값) (T024 통과)
-- [ ] T026 [US3] `collector/report.py`에 `status` 표 구현: contracts/cli.md 출력 형식, 공간별 묶음, 수집기 상태 줄(마지막 연결·끊김, 오늘 중복·실패 수), 끊긴 항목이 있으면 종료 코드 3
-- [ ] T027 [US3] `collector/report.py`에 `report` Markdown 구현: 측정 조건(기간, 실데이터, hostname, `nvpmodel -q` 결과 또는 "확인 불가", 설정 파일, `git rev-parse HEAD`), 커버율 표, 결측 구간과 원인·근거, 중복·실패 집계, 시계 점검, 사람이 채울 "해석" 칸. `--hours`와 `--from/--to`로 기간 지정
-- [ ] T028 [US3] `collector/__main__.py`에 `status`·`report` 명령 연결
+- [x] T025 [US3] `collector/coverage.py` 구현: 커버율(센서·항목별, 공간별 묶음, 1분 기준 병기), 결측 구간, 원인 추정과 근거(research.md R8), 끊김 판정, 시계 점검(`received_at - measured_at` 중앙값) (T024 통과)
+- [x] T026 [US3] `collector/report.py`에 `status` 표 구현: contracts/cli.md 출력 형식, 공간별 묶음, 수집기 상태 줄(마지막 연결·끊김, 오늘 중복·실패 수), 끊긴 항목이 있으면 종료 코드 3
+- [x] T027 [US3] `collector/report.py`에 `report` Markdown 구현: 측정 조건(기간, 실데이터, hostname, `nvpmodel -q` 결과 또는 "확인 불가", 설정 파일, `git rev-parse HEAD`), 커버율 표, 결측 구간과 원인·근거, 중복·실패 집계, 시계 점검, 사람이 채울 "해석" 칸. `--hours`와 `--from/--to`로 기간 지정
+- [x] T028 [US3] `collector/__main__.py`에 `status`·`report` 명령 연결
 - [ ] T029 **(보드)** [US3] 보드 B에서 SC-003: 장애 시험이 없는 연속 24시간 이상 가동 후 `report`로 `docs/reports/001-collection-status.md` 생성, 간격 기준 커버율 95% 이상 확인, 결측 구간 해석 작성
 
 **Checkpoint**: 완료 조건 3 통과 (보드 B 기준)
@@ -143,7 +143,7 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 
 **Independent Test**: 수집 중 전체 내보내기를 돌려도 그 시간대 커버율이 떨어지지 않는다
 
-- [ ] T034 [US5] `export` 명령 구현: 읽기 전용 연결, 열 `measured_at, device_id, device_profile, space, spot, metric, value, unit, gw_time, received_at, fcnt`, `--from/--to/--metric/--out`, 출력 경로가 `data/` 밖이면 경고 (`collector/__main__.py`, `collector/store.py`)
+- [x] T034 [US5] `export` 명령 구현: 읽기 전용 연결, 열 `measured_at, device_id, device_profile, space, spot, metric, value, unit, gw_time, received_at, fcnt`, `--from/--to/--metric/--out`, 출력 경로가 `data/` 밖이면 경고 (`collector/__main__.py`, `collector/store.py`)
 - [ ] T035 **(보드)** [US5] 보드 B에서 SC-007: 수집 중 전체 내보내기 실행, 전후 커버율 비교를 `docs/reports/001-failure-tests.md`에 기록
 
 ---
@@ -158,7 +158,7 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 
 ## Phase 9: Polish & 보드 A 배포
 
-- [ ] T037 [P] `README.md`에 수집기 사용법 절 추가(설치, `run`/`status`/`report`/`export`, 서비스 등록), quickstart.md 링크
+- [x] T037 [P] `README.md`에 수집기 사용법 절 추가(설치, `run`/`status`/`report`/`export`, 서비스 등록), quickstart.md 링크
 - [ ] T038 **(보드)** 보드 A 배포: `nc -zv -w 5 data.withio.net 1883` 확인 → 저장소 clone·`.venv`·`.env` 준비 → `config/collector.toml`의 `client_id`(`team5-a-...`)와 `storage.path`(`/srv/team5/collector/collector.db`) 지정 → `sudo deploy/install-service.sh` → `status` 확인. 보드 A에서는 코드를 고치지 않는다
 - [ ] T039 **(보드)** 보드 A에서 24시간 가동 후 `report`로 커버율 재확인, `docs/reports/001-collection-status.md`에 보드 A 결과 추가
 - [ ] T040 quickstart.md 전 과정을 처음부터 따라 해 보고 어긋난 명령·설명 수정

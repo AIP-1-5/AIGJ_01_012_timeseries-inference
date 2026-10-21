@@ -111,3 +111,12 @@ def test_missing_credentials_is_config_error(root, monkeypatch):
     with pytest.raises(ConfigError) as err:
         config.broker.credentials()
     assert "MQTT_USERNAME" in str(err.value) and "secret" not in str(err.value)
+
+
+def test_config_option_before_or_after_command():
+    from collector.__main__ import build_parser
+
+    parser = build_parser()
+    assert parser.parse_args(["--config", "a.toml", "status"]).config == "a.toml"
+    assert parser.parse_args(["status", "--config", "b.toml"]).config == "b.toml"
+    assert parser.parse_args(["status"]).config == "config/collector.toml"

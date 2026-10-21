@@ -1,0 +1,43 @@
+# 수집기 운영 설정 (contracts/config.md). 비밀값은 넣지 않는다: 계정은 .env의 환경변수에서 읽는다.
+
+[broker]
+host = "data.withio.net"
+port = 1883
+username_env = "MQTT_USERNAME"
+password_env = "MQTT_PASSWORD"
+client_id = "team5-b-jaeung-collector"   # 사람·보드마다 달라야 한다 (공용 계정이라 겹치면 서로 끊김)
+keepalive_seconds = 30
+reconnect_min_seconds = 1
+reconnect_max_seconds = 20                # 브로커 복구 후 1분 안 재수집 기준을 지키기 위한 상한
+stale_after_minutes = 5                   # 연결돼 보이는데 이 시간 동안 메시지가 없으면 다시 접속
+qos = 1
+clean_session = false
+
+[storage]
+path = "data/collector.db"                # 보드 A 운영 시 /srv/team5/collector/collector.db 등으로 바꾼다
+
+[[sources]]
+name = "chirpstack"
+topic = "application/+/device/+/event/up"
+format = "json"
+
+  [sources.fields]                        # 메시지 안의 위치 (점 경로, a[].b는 배열의 각 원소)
+  device_id = "deviceInfo.devEui"
+  device_profile = "deviceInfo.deviceProfileName"
+  space = "deviceInfo.tags.location"
+  spot = "deviceInfo.tags.spot"
+  ns_time = "rxInfo[].nsTime"             # 네트워크 서버 시각, 가장 이른 값을 기준 시각으로 쓴다
+  gw_time = "time"                        # 게이트웨이 시계 (참고용, 약 5분 틀린 게이트웨이가 있다)
+  fcnt = "fCnt"
+  dedup_key = "deduplicationId"
+  values = "object"
+
+  [sources.metrics]
+  include = ["co2", "temperature", "humidity", "battery"]
+  rename = {}
+  units = { co2 = "ppm", temperature = "°C", humidity = "%", battery = "%" }
+
+[intervals]                               # 기대 전송 간격(분), 커버율 계산용 (2026-10-21 관찰)
+default = 1
+by_profile = { "EM500-CO2" = 2 }
+by_device = { "24e124725d089152" = 10, "24e124128c140101" = 10 }   # 회의실 AM103, 실습실 전방 우측 AM107

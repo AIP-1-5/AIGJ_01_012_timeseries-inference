@@ -1,0 +1,1 @@
+{"msgId":"fmt-0001","sentAt":"2026-10-21T00:40:00.000+00:00","device":{"eui":"a0a0a0a0a0000009","model":"NEW-CO2","tags":{"room":"실습실","position":"창가"}},"seq":7,"measurements":{"CO2_ppm":812,"temp_c":23.4,"rh_pct":58.0}}

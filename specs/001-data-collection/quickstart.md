@@ -37,8 +37,8 @@ set -a; source .env; set +a
 
 ```bash
 sudo deploy/install-service.sh            # 서비스 파일 설치, enable, start
-systemctl status collector --no-pager
-journalctl -u collector -n 20 --no-pager
+systemctl status collector-$USER --no-pager
+journalctl -u collector-$USER -n 20 --no-pager
 ```
 
 ## 4. 확인 기준 시험
@@ -65,8 +65,8 @@ sudo iptables -L OUTPUT -n | grep 1883   # 차단이 남아 있지 않은지 (�
 date +%T; sudo reboot
 # 다시 접속한 뒤 (수집기를 직접 켜지 않는다)
 uptime -s
-systemctl show collector -p ActiveEnterTimestamp
-journalctl -u collector -b --no-pager | head -5       # 이번 부팅의 수집기 로그
+systemctl show collector-$USER -p ActiveEnterTimestamp
+journalctl -u collector-$USER -b --no-pager | head -5       # 이번 부팅의 수집기 로그
 .venv/bin/python - <<'EOF'
 import sqlite3
 from datetime import datetime, timezone, timedelta
@@ -123,8 +123,13 @@ kill %1                                                     # 시험용 수집�
 ```bash
 ssh board-a
 nc -zv -w 5 data.withio.net 1883          # MQTT 접속 먼저 확인
-# 저장소 clone/pull, .venv, .env 준비 후 config의 client_id와 storage.path를 보드 A용으로 바꾼다
-sudo deploy/install-service.sh
+mkdir -p ~/work && cd ~/work
+git clone https://github.com/AIP-1-5/AIGJ_01_012_timeseries-inference.git   # 공개 저장소라 https면 SSH 키 불필요
+cd AIGJ_01_012_timeseries-inference
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+nano .env                                  # MQTT 계정
+./collector.sh check-config                # client_id가 team5-a-<계정>-collector로 나오는지
+sudo deploy/install-service.sh             # collector-<계정> 서비스로 등록
 ```
 
 보드 A는 재부팅하지 않는다. 재부팅 시험 결과는 보드 B 결과로 대신하고 같은 서비스 파일을 쓴다는 점을 보고서에 적는다. 24시간 커버율은 보드 A에서 다시 확인한다.

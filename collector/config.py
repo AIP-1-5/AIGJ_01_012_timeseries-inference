@@ -1,6 +1,8 @@
 """설정 파일(TOML)과 환경변수 읽기. 비밀값은 설정 파일에 두지 않고 환경변수에서만 읽는다."""
 
+import getpass
 import os
+import socket
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,6 +105,18 @@ def _source(raw, index):
     )
 
 
+def expand_client_id(template):
+    """client_id의 {hostname}, {user}를 채운다. 보드를 같이 쓰는 팀원끼리 같은 설정 파일을 써도
+    client_id가 겹치지 않게 하기 위해서다 (겹치면 브로커가 서로를 끊는다)."""
+    try:
+        value = template.format(hostname=socket.gethostname(), user=getpass.getuser())
+    except (KeyError, IndexError, ValueError) as exc:
+        raise ConfigError(f"[broker] client_id에 쓸 수 있는 자리표시자는 {{hostname}}, {{user}}뿐이다: {template}") from exc
+    if not value.strip():
+        raise ConfigError("[broker] client_id가 비어 있다")
+    return value
+
+
 def load_config(path):
     path = Path(path)
     try:
@@ -123,6 +137,7 @@ def load_config(path):
     if unknown:
         raise ConfigError(f"[broker]에 알 수 없는 키: {', '.join(unknown)}")
     broker = BrokerConfig(**broker_raw)
+    broker.client_id = expand_client_id(broker.client_id)
     if broker.reconnect_max_seconds > 60:
         raise ConfigError("[broker] reconnect_max_seconds는 60 이하여야 한다 (복구 후 1분 안 재수집 기준)")
 

@@ -113,3 +113,15 @@ def test_topic_matching():
     assert not topic_matches("application/+/device/+/event/up", "application/a/device/d/event/join")
     assert topic_matches("xflow/#", "xflow/hvacr/idu/1/status")
     assert not topic_matches("a/+", "a/b/c")
+
+
+def test_client_id_placeholders(monkeypatch):
+    import collector.config as cfg
+    from collector.config import ConfigError, expand_client_id
+
+    monkeypatch.setattr(cfg.socket, "gethostname", lambda: "team5-a")
+    monkeypatch.setattr(cfg.getpass, "getuser", lambda: "jaeung")
+    assert expand_client_id("{hostname}-{user}-collector") == "team5-a-jaeung-collector"
+    assert expand_client_id("fixed-id") == "fixed-id"
+    with pytest.raises(ConfigError):
+        expand_client_id("{board}-collector")

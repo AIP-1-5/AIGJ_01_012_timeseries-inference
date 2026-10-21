@@ -8,7 +8,7 @@ host = "data.withio.net"
 port = 1883
 username_env = "MQTT_USERNAME"
 password_env = "MQTT_PASSWORD"
-client_id = "team5-b-jaeung-collector"   # 사람·보드마다 달라야 한다 (공용 계정이라 겹치면 서로 끊김)
+client_id = "{hostname}-{user}-collector" # {hostname}, {user}가 자동으로 채워진다. 사람·보드마다 달라야 한다 (공용 계정이라 겹치면 서로 끊김)
 keepalive_seconds = 30
 reconnect_min_seconds = 1
 reconnect_max_seconds = 20                # 브로커 복구 후 1분 기준을 지키기 위한 상한
@@ -52,7 +52,7 @@ by_device = { "24e124725d089152" = 10, "24e124128c140101" = 10 }   # 회의실 A
 - 점 경로 문법: `a.b.c`는 중첩 키, `a[].b`는 배열의 각 원소에서 `b`를 모은다(시각이면 가장 이른 값).
 - `metrics.include`에 없는 항목은 저장하지 않는다. 비우면(`[]`) 숫자인 항목을 전부 저장한다.
 - 소스를 여러 개 둘 수 있다. 같은 메시지가 여러 소스 토픽에 맞으면 첫 번째 소스만 적용한다.
-- 설정을 바꾼 뒤에는 `check-config`로 확인하고 서비스를 재시작한다(`sudo systemctl restart collector`). 코드 수정은 필요 없다(FR-005).
+- 설정을 바꾼 뒤에는 `check-config`로 확인하고 서비스를 재시작한다(`sudo systemctl restart collector-$USER`). 코드 수정은 필요 없다(FR-005).
 
 ## 형식 변경 대응 예시 (산출물용)
 

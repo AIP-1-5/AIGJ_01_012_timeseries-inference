@@ -220,7 +220,7 @@ def build_report(config, store, start, end, now, excluded=()):
 # 결측 원인별로 "왜"와 "그래서 무엇을"을 제안한다. 최종 문장은 사람이 다듬는다 (constitution V).
 CAUSE_ADVICE = {
     "collector": ("수집기가 끊겼거나 멈춰 있었다. 장애 시험 시간대가 아니라면 수집기 쪽 문제다.",
-                  "사건 기록과 `journalctl -u collector`로 끊긴 이유를 확인한다. 시험 시간대면 `--exclude`로 빼고 다시 판정한다."),
+                  "사건 기록과 `journalctl -u collector-$USER`로 끊긴 이유를 확인한다. 시험 시간대면 `--exclude`로 빼고 다시 판정한다."),
     "upstream": ("센서는 보냈지만(fCnt가 건너뜀) 브로커까지 오지 않았다. 무선 신호가 약하거나 게이트웨이·서버 쪽 손실이다.",
                  "수집기로는 되살릴 수 없다. 센서 위치와 게이트웨이 상태를 운영진에 알리고, 과제 2에서 결측으로 처리한다."),
     "sensor": ("센서가 보내지 않았다(fCnt가 이어짐). 센서 전원·설정 문제이거나 아직 복구되지 않았다.",

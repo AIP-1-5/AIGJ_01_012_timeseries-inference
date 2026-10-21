@@ -1,8 +1,8 @@
 # 수집기 systemd 서비스 템플릿. 직접 복사하지 말고 deploy/install-service.sh로 설치한다.
-# @USER@, @REPO@는 설치 스크립트가 채운다.
+# @USER@, @REPO@는 설치 스크립트가 채운다. 서비스 이름은 collector-<계정>이다 (보드를 팀원과 같이 쓰므로).
 
 [Unit]
-Description=MQTT sensor collector (assignment 1)
+Description=MQTT sensor collector (assignment 1, @USER@)
 After=network-online.target
 Wants=network-online.target
 

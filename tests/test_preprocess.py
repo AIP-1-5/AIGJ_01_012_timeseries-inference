@@ -163,3 +163,22 @@ def test_untagged_rows_excluded(settings):
     row = stats.set_index(["space", "metric"]).loc[("실습실", "co2")]
     assert row["untagged_rows"] == 10 and row["raw_rows"] == 20 and row["sensors"] == 1
     assert series(clean, "실습실", "co2")["value"].max() < 700
+
+
+def test_ten_minute_sensor_does_not_make_median_jump(settings):
+    # 1분 센서 600, 10분 센서 800. 이어 쓰기가 없으면 칸마다 700 / 600이 번갈아 나온다
+    rows = [[minutes(m), "fast", "실습실", "", "co2", 600 + (m % 3)] for m in range(0, 120)]
+    rows += [[minutes(m), "slow", "실습실", "", "co2", 800 + (m % 7)] for m in range(0, 120, 10)]
+    clean, _, _ = preprocess({"co2": raw(rows)}, settings)
+    lab = series(clean, "실습실", "co2")
+    assert lab["value"].between(695, 710).all()
+    assert (lab["n_sensors"] == 2).all()
+    assert not lab["interpolated"].any()
+
+
+def test_held_value_alone_does_not_make_slot(settings):
+    # 10분 센서 하나뿐이면 이어 쓴 값만 있는 칸은 결측 → 보간 표시 (정답으로 쓰지 않음)
+    rows = [[minutes(m), "slow", "회의실", "", "co2", 500 + m] for m in range(0, 60, 10)]
+    clean, _, _ = preprocess({"co2": raw(rows)}, settings)
+    room = series(clean, "회의실", "co2")
+    assert room["interpolated"].sum() == len(room) // 2

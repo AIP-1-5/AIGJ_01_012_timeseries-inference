@@ -38,6 +38,7 @@ class Settings:
     interval_minutes: int
     max_interp_minutes: int
     duplicate_seconds: float
+    sensor_hold_minutes: int
     ranges: dict                        # 항목 → (최소, 최대)
     stuck_minutes: dict                 # 항목 → 분
     night_co2_hours: tuple
@@ -226,6 +227,7 @@ def load_settings(path=DEFAULT_CONFIG, root=None):
         interval_minutes=interval,
         max_interp_minutes=int(resample.get("max_interp_minutes", 15)),
         duplicate_seconds=float(resample.get("duplicate_seconds", 10)),
+        sensor_hold_minutes=int(resample.get("sensor_hold_minutes", 10)),
         ranges=ranges,
         stuck_minutes={m: float(v) for m, v in stuck_minutes.items()},
         night_co2_hours=_hour_pair(faults.get("night_co2_hours", ["02:00", "05:00"]), "[faults] night_co2_hours"),

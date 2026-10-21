@@ -6,7 +6,8 @@
   어제 같은 시각:    ŷ(t+h) = y(t+h−24시간)
 
 평가 시점(artifacts/eval_points.csv)은 한 번 고정하고 과제 3·6 모델도 같은 파일로 평가한다.
-모든 기준선·모든 h가 같은 시점 집합에서 채점되도록, 모든 조건을 동시에 만족하는 t만 고른다.
+h마다 쓸 수 있는 t를 열(h5, h15, …)로 표시한다. 같은 h에서는 모든 기준선·모델이 같은 시점 집합으로 채점된다.
+h마다 따로 표시하는 이유: 회의실 센서는 10분 간격이라 5·15분 뒤 칸에는 관측 정답이 있을 수 없다.
 """
 
 import json
@@ -26,7 +27,15 @@ BASELINES = ("persistence", "mean_1h", "yesterday")
 BASELINE_LABELS = {"persistence": "현재값 유지", "mean_1h": "최근 1시간 평균", "yesterday": "어제 같은 시각"}
 UNITS = {"co2": "ppm", "temperature": "℃", "humidity": "%"}
 METRIC_LABELS = {"co2": "CO₂", "temperature": "온도", "humidity": "습도"}
-POINT_COLUMNS = ["space", "metric", "time", "weekday_class_hours"]
+BASE_COLUMNS = ["space", "metric", "time", "weekday_class_hours"]
+
+
+def horizon_column(horizon):
+    return f"h{horizon}"
+
+
+def point_columns(settings):
+    return BASE_COLUMNS + [horizon_column(h) for h in settings.horizons]
 
 
 def regular_series(clean, space, metric, interval_minutes):
@@ -76,29 +85,43 @@ def build_eval_points(clean, split, settings):
             ok = observed & (usable.astype(int).rolling(window, min_periods=window).sum() >= need)
             times = frame.index.to_series()
             ok &= (times >= test_start) & (times < test_end)
+            flags = {}
             for horizon in settings.horizons:
                 k = horizon // step
-                ok &= observed.shift(-k, fill_value=False)               # 정답 y(t+h)가 관측값
-                ok &= usable.shift(day - k, fill_value=False)            # y(t+h−24h)가 있음
-                ok &= (times + pd.Timedelta(minutes=horizon)) < test_end  # 정답도 시험 기간 안
-            picked = frame.index[ok.to_numpy()]
-            parts.append(pd.DataFrame({"space": spec.space, "metric": metric, "time": picked}))
-    points = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=POINT_COLUMNS[:3])
+                flags[horizon_column(horizon)] = (
+                    ok
+                    & observed.shift(-k, fill_value=False)                # 정답 y(t+h)가 관측값
+                    & usable.shift(day - k, fill_value=False)             # y(t+h−24h)가 있음
+                    & ((times + pd.Timedelta(minutes=horizon)) < test_end)  # 정답도 시험 기간 안
+                )
+            flags = pd.DataFrame(flags)
+            keep = flags.any(axis=1).to_numpy()
+            part = flags[keep].reset_index(drop=True)
+            part.insert(0, "time", frame.index[keep])
+            part.insert(0, "metric", metric)
+            part.insert(0, "space", spec.space)
+            parts.append(part)
+    if not parts:
+        return pd.DataFrame(columns=point_columns(settings))
+    points = pd.concat(parts, ignore_index=True)
     points["weekday_class_hours"] = class_hours_flags(pd.DatetimeIndex(points["time"]), settings) if len(points) else []
-    return points[POINT_COLUMNS]
+    return points[point_columns(settings)]
 
 
 def save_points(points, path):
     out = points.copy()
     out["time"] = pd.DatetimeIndex(out["time"]).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for column in out.columns[3:]:
+        out[column] = out[column].astype(int)          # 0/1로 저장 (파일 크기)
     out.to_csv(path, index=False)
 
 
 def load_points(path):
     points = pd.read_csv(path, dtype={"space": str, "metric": str}, keep_default_na=False)
     points["time"] = pd.to_datetime(points["time"], utc=True, format="ISO8601")
-    points["weekday_class_hours"] = points["weekday_class_hours"].astype(str).str.lower().eq("true")
-    return points[POINT_COLUMNS]
+    for column in points.columns[3:]:
+        points[column] = points[column].astype(str).str.lower().isin(["1", "true"])
+    return points
 
 
 def predict(clean, points, settings):
@@ -112,10 +135,14 @@ def predict(clean, points, settings):
         observed, usable = masks(frame)
         value_in = frame["value"].where(usable)
         truth_all = frame["value"].where(observed)
-        at = pd.DatetimeIndex(group["time"])
         mean_1h = value_in.rolling(window, min_periods=1).mean()
         for horizon in settings.horizons:
             k = horizon // step
+            column = horizon_column(horizon)
+            if column not in group or not group[column].any():
+                continue
+            rows = group[group[column]]
+            at = pd.DatetimeIndex(rows["time"])
             truth = truth_all.shift(-k).reindex(at).to_numpy()
             preds = {
                 "persistence": value_in.reindex(at).to_numpy(),
@@ -126,7 +153,7 @@ def predict(clean, points, settings):
                 parts.append(pd.DataFrame({
                     "space": space, "metric": metric, "time": at, "horizon_min": horizon,
                     "baseline": name, "y_true": truth, "y_pred": preds[name],
-                    "weekday_class_hours": group["weekday_class_hours"].to_numpy(),
+                    "weekday_class_hours": rows["weekday_class_hours"].to_numpy(),
                 }))
     return pd.concat(parts, ignore_index=True)
 
@@ -192,7 +219,7 @@ def format_mae_tables(table, settings, title_suffix=""):
             continue
         unit = UNITS.get(metric, "")
         out.append(f"#### {METRIC_LABELS.get(metric, metric)} MAE ({unit}){title_suffix}\n")
-        out.append("| 공간 | 기준선 | " + " | ".join(f"{h}분" for h in horizons) + " | 평가 시점 수 |")
+        out.append("| 공간 | 기준선 | " + " | ".join(f"{h}분" for h in horizons) + " | 평가 시점 수 (" + "/".join(f"{h}" for h in horizons) + "분) |")
         out.append("|---|---|" + "---:|" * len(horizons) + "---:|")
         spaces = [s.space for s in settings.spaces if s.space in set(part["space"])] + ["전체"]
         for space in spaces:
@@ -201,17 +228,19 @@ def format_mae_tables(table, settings, title_suffix=""):
                 continue
             best = {h: rows[rows["horizon_min"] == h]["mae"].min() for h in horizons}
             for name in BASELINES:
-                cells, n = [], 0
+                cells, counts = [], []
                 for h in horizons:
                     hit = rows[(rows["baseline"] == name) & (rows["horizon_min"] == h)]
                     if hit.empty:
                         cells.append("-")
+                        counts.append("0")
                         continue
-                    mae, n = hit["mae"].iloc[0], int(hit["n"].iloc[0])
+                    mae = hit["mae"].iloc[0]
+                    counts.append(f"{int(hit['n'].iloc[0]):,}")
                     text = f"{mae:.2f}" if metric != "co2" else f"{mae:.1f}"
                     cells.append(f"**{text}**" if np.isclose(mae, best[h]) else text)
                 label = f"**{space}**" if space == "전체" else space
-                out.append(f"| {label} | {BASELINE_LABELS[name]} | " + " | ".join(cells) + f" | {n:,} |")
+                out.append(f"| {label} | {BASELINE_LABELS[name]} | " + " | ".join(cells) + f" | {' / '.join(counts)} |")
         out.append("")
     return "\n".join(out)
 
@@ -228,10 +257,12 @@ def baselines_markdown(settings, clean, split, points, table, table_class, notes
         "",
         conditions_block(settings, clean, split, {
             "평가 시점": f"`artifacts/eval_points.csv` {len(points):,}개 (평일 실습 시간 {int(points['weekday_class_hours'].sum()):,}개)",
-            "평가 규칙": "시험 기간의 t 중 y(t) 관측, 직전 1시간 12칸 중 9칸 이상, y(t+h−24h) 있음, 모든 h의 정답 y(t+h)가 관측값(보간·고장 아님)",
+            "평가 규칙": "시험 기간의 t 중 y(t) 관측, 직전 1시간 12칸 중 9칸 이상, 그리고 h마다 y(t+h−24h) 있음·정답 y(t+h)가 관측값(보간·고장 아님). 같은 h에서는 세 기준선이 같은 시점",
+            "빈칸(-)": "그 h에 관측 정답이 없다. 회의실은 10분 간격 센서라 5·15분 뒤 칸이 항상 보간이다",
         }),
         "",
-        "굵은 글씨 = 그 공간·그 h에서 MAE가 가장 작은 기준선.",
+        "굵은 글씨 = 그 공간·그 h에서 MAE가 가장 작은 기준선. "
+        "'전체'는 그 h의 모든 공간 평가 시점을 합친 값이라, 회의실이 들어가는 30·60분과 빠지는 5·15분은 공간 구성이 다르다(같은 h 안의 기준선 비교는 공정하다).",
         "",
         "## 전체 평가 시점",
         "",
@@ -284,11 +315,11 @@ def run(settings, rebuild_points=False):
     predictions = predict(clean, points, settings)
     invalid = predictions["y_true"].isna() | predictions["y_pred"].isna()
     if invalid.any():
-        bad_points = predictions.loc[invalid, ["space", "metric", "time"]].drop_duplicates()
-        notes.append(f"고정된 평가 시점 중 {len(bad_points):,}개는 지금 데이터로 정답·예측을 만들 수 없어 뺐다 "
+        keys = ["space", "metric", "time", "horizon_min"]
+        bad_points = predictions.loc[invalid, keys].drop_duplicates()
+        notes.append(f"고정된 평가 시점 중 {len(bad_points):,}개(시점×h)는 지금 데이터로 정답·예측을 만들 수 없어 뺐다 "
                      "(전처리 규칙이 바뀌었으면 `--rebuild-points`와 이유 기록)")
-        keep = ~predictions.set_index(["space", "metric", "time"]).index.isin(bad_points.set_index(["space", "metric", "time"]).index)
-        predictions = predictions[keep]
+        predictions = predictions[~predictions.set_index(keys).index.isin(bad_points.set_index(keys).index)]
     settings.processed_dir.mkdir(parents=True, exist_ok=True)
     out = predictions.copy()
     out["time"] = pd.DatetimeIndex(out["time"]).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -299,12 +330,15 @@ def run(settings, rebuild_points=False):
     table_class = mae_table(predictions, subset="weekday_class_hours")
     table.to_csv(settings.processed_dir / "baseline_mae.csv", index=False)
     table_class.to_csv(settings.processed_dir / "baseline_mae_class_hours.csv", index=False)
-    for space in sorted(set(points["space"]) - set(table["space"])):
-        notes.append(f"{space}: 평가 시점이 없다")
-    counts = points.groupby(["space", "metric"]).size()
-    for (space, metric), n in counts.items():
-        if n < 1000:
-            notes.append(f"{space} {METRIC_LABELS.get(metric, metric)}: 평가 시점 {n:,}개로 적다 (10분 센서는 칸 절반이 보간이라 정답에서 빠진다)")
+    flag_columns = [horizon_column(h) for h in settings.horizons]
+    counts = points.groupby(["space", "metric"])[flag_columns].sum()
+    print("평가 시점 수 (" + "/".join(f"{h}" for h in settings.horizons) + "분):")
+    for (space, metric), row in counts.iterrows():
+        print(f"  {space:<8} {metric:<12} " + " / ".join(f"{int(v):,}" for v in row))
+        missing = [str(h) for h, v in zip(settings.horizons, row) if v == 0]
+        if missing:
+            notes.append(f"{space} {METRIC_LABELS.get(metric, metric)}: {', '.join(missing)}분 뒤는 평가 시점이 없다 "
+                         "(10분 간격 센서라 그 칸은 항상 보간 → 관측 정답이 없음)")
 
     settings.reports_dir.mkdir(parents=True, exist_ok=True)
     report = settings.reports_dir / "002-baselines.md"

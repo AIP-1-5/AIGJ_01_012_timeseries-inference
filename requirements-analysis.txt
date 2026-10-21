@@ -1,0 +1,5 @@
+# 과제 2 이후 분석용 (수집기에는 필요 없다). 맥과 보드 B 모두 ARM64용 휠이 있다.
+pandas>=2.2
+numpy>=1.26
+matplotlib>=3.8
+holidays>=0.50

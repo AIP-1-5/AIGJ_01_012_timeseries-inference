@@ -22,3 +22,6 @@ qos = 1
 [http]
 host = "0.0.0.0"                     # Tailscale 주소로 접근 (예: http://100.113.228.46:8080)
 port = 8080
+
+[monitor]
+co2_mae_alert = 75                   # 최근 24시간 CO₂ 60분 예측 오차가 이보다 크면 forecast_drift 경보 (현재값 유지 시험 MAE 36 ppm의 약 2배)

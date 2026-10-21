@@ -3,7 +3,7 @@
 
 [Unit]
 Description=Inference service (assignment 8, @USER@)
-After=network-online.target collector-@USER@.service
+After=network-online.target time-sync.target collector-@USER@.service
 Wants=network-online.target
 
 [Service]

@@ -77,3 +77,12 @@ def test_interpretation_suggests_why_and_action(config):
     assert "센서 쪽 (배터리 낮음)" in section and "**왜**" in section and "**그래서**" in section
     assert "배터리 20% 이하 센서 1대" in section
     assert "95% 미만" in section
+
+
+def test_report_warns_when_end_is_in_future(config, capsys, tmp_path):
+    from collector.report import write_report
+
+    out = tmp_path / "r.md"
+    write_report(config, start="2026-10-21T09:00", end="2026-10-22T09:00", out=str(out), now=NOW)
+    assert "아직 지나지 않았다" in capsys.readouterr().err
+    assert "아직 끝나지 않은 기간" in out.read_text(encoding="utf-8")

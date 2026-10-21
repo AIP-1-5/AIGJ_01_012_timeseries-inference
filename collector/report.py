@@ -145,6 +145,10 @@ def build_report(config, store, start, end, now, excluded=()):
         to_kst_str(a, "%m-%d %H:%M") + "~" + to_kst_str(b, "%H:%M") for a, b in excluded
     ) or "없음"
     lines = ["# 과제 1 수집 현황 보고", ""]
+    if end > now:
+        lines += [f"> **주의: 아직 끝나지 않은 기간이다.** 끝 시각({to_kst_str(end, '%m-%d %H:%M')})이 작성 시각"
+                  f"({to_kst_str(now, '%m-%d %H:%M')})보다 뒤라 오지 않은 시간이 빈칸으로 계산됐다. "
+                  "커버율과 판정은 확정 값이 아니다. 끝 시각이 지난 뒤 다시 만든다.", ""]
 
     lines += ["## 측정 조건", "", "| 항목 | 값 |", "|---|---|",
               f"| 기간 | {to_kst_str(start, '%Y-%m-%d %H:%M')} ~ {to_kst_str(end, '%Y-%m-%d %H:%M')} KST ({hours:.1f}시간) |",
@@ -284,6 +288,9 @@ def write_report(config, hours=24, start=None, end=None, out=None, exclude=None,
     now = now or utcnow()
     end_dt = parse_kst(end) if end else now
     start_dt = parse_kst(start) if start else end_dt - timedelta(hours=hours)
+    if end_dt > now:
+        print(f"주의: 끝 시각 {to_kst_str(end_dt, '%m-%d %H:%M')}이 아직 지나지 않았다. "
+              "오지 않은 시간이 빈칸으로 계산되어 커버율이 낮게 나온다 (확정 판정은 끝 시각 이후에)", file=sys.stderr)
     text, result = build_report(config, store, start_dt, end_dt, now, parse_excluded(exclude))
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

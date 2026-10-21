@@ -46,6 +46,8 @@ sudo deploy/install-service.sh                       # 서비스로 등록 (재�
 .venv/bin/python -m collector export --from 2026-10-21 --to 2026-10-22 --out data/export.csv
 ```
 
+자주 쓰는 명령은 [docs/cheatsheet.md](docs/cheatsheet.md)에 상황별로 모아 두었다. `./collector.sh <명령>`은 `.env`를 불러온 뒤 위 명령을 실행하는 줄임이다.
+
 | 파일 | 역할 |
 |---|---|
 | `config/collector.toml` | 브로커, 구독 토픽, 메시지 해석 규칙, 센서별 전송 간격 (형식이 바뀌면 여기만 고친다) |

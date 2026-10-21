@@ -292,7 +292,7 @@ def points_path(settings):
     return settings.artifacts_dir / "eval_points.csv"
 
 
-def run(settings, rebuild_points=False):
+def run(settings, rebuild_points=False, write_report=True):
     clean = load_clean(clean_path(settings))
     if not split_path(settings).exists():
         print("artifacts/split.json이 없다. 먼저 split을 실행한다")
@@ -340,10 +340,13 @@ def run(settings, rebuild_points=False):
             notes.append(f"{space} {METRIC_LABELS.get(metric, metric)}: {', '.join(missing)}분 뒤는 평가 시점이 없다 "
                          "(10분 간격 센서라 그 칸은 항상 보간 → 관측 정답이 없음)")
 
-    settings.reports_dir.mkdir(parents=True, exist_ok=True)
-    report = settings.reports_dir / "002-baselines.md"
-    report.write_text(baselines_markdown(settings, clean, split, points, table, table_class, notes), encoding="utf-8")
-    print(f"성능표 → {report}")
+    if write_report:
+        settings.reports_dir.mkdir(parents=True, exist_ok=True)
+        report = settings.reports_dir / "002-baselines.md"
+        report.write_text(baselines_markdown(settings, clean, split, points, table, table_class, notes), encoding="utf-8")
+        print(f"성능표 → {report}")
+    else:
+        print("성능표 파일은 쓰지 않음 (--no-report): 예측·MAE는 data/processed에만")
     for row in strongest(table).itertuples():
         print(f"  {METRIC_LABELS.get(row.metric, row.metric)} {row.horizon_min:>2}분: 가장 강한 기준선 = "
               f"{BASELINE_LABELS[row.baseline]} (MAE {row.mae:.2f} {UNITS.get(row.metric, '')})")

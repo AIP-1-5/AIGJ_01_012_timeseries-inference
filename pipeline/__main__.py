@@ -81,7 +81,7 @@ def cmd_diagnose(args, settings):
 def cmd_baselines(args, settings):
     from .baselines import run
 
-    return run(settings, rebuild_points=args.rebuild_points)
+    return run(settings, rebuild_points=args.rebuild_points, write_report=not args.no_report)
 
 
 def cmd_report(args, settings):
@@ -122,6 +122,7 @@ def build_parser():
 
     p = sub.add_parser("baselines", parents=[common], help="평가 시점 고정과 기준선 3종 평가")
     p.add_argument("--rebuild-points", action="store_true", help="이미 있는 artifacts/eval_points.csv를 다시 만들기")
+    p.add_argument("--no-report", action="store_true", help="docs/reports/002-baselines.md를 쓰지 않기 (다른 장비에서 예측 파일만 다시 만들 때)")
     p.set_defaults(func=cmd_baselines)
 
     p = sub.add_parser("report", parents=[common], help="진단서 초안 docs/reports/002-diagnosis.md")

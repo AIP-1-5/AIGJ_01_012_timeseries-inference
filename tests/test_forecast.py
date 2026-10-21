@@ -177,7 +177,7 @@ def test_zero_delta_reproduces_persistence(prepared, settings, schedule):
     np.testing.assert_array_equal(joined["n_model"], joined["n_base"])
 
 
-def make_root(tmp_path, settings):
+def make_root(tmp_path, settings=None):
     """과제 2 산출물이 있는 가짜 저장소 (설정 파일 + data/processed + artifacts)."""
     (tmp_path / "config").mkdir()
     for name in ("preprocess.toml", "schedule.toml", "forecast.toml"):

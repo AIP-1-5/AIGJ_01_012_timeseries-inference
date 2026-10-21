@@ -176,6 +176,8 @@ def test_http_api(engine, tmp_path):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     port = server.server_address[1]
     try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=5) as resp:   # 대시보드 화면
+            assert resp.status == 200 and "교육장 공기 상태" in resp.read().decode("utf-8")
         assert get(port, "/v1/spaces")[0] == 503                                # 첫 계산 전
         assert get(port, "/health")[0] == 503
         run_one(engine, state, AlertGate(30), None, tmp_path / "cycles.csv", now=NOW)

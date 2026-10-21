@@ -27,6 +27,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 log = logging.getLogger("service")
 
+DASHBOARD = Path(__file__).with_name("dashboard.html")
 CYCLE_FIELDS = ["time", "ok", "ms", "raw_rows", "n_spaces", "alerts", "data_gaps", "error"]
 
 
@@ -130,6 +131,14 @@ def make_handler(state, stale_after):
         def do_GET(self):
             url = urlparse(self.path)
             parts = [p for p in url.path.split("/") if p]
+            if parts in ([], ["dashboard"]):
+                data = DASHBOARD.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
             latest, error, ok_at = state.snapshot()
             age = None if ok_at is None else round(time.time() - ok_at, 1)
             if parts == ["health"]:

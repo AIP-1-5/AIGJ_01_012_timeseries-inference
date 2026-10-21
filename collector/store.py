@@ -70,7 +70,11 @@ EXPORT_COLUMNS = (
 
 
 class Store:
-    """수집기는 쓰기용으로, status/report/export는 readonly=True로 연다."""
+    """수집기는 쓰기용으로, status/report/export는 readonly=True로 연다.
+
+    사건(events)의 순서는 기록 순서(id)로 판단한다. 부팅 직후 시계가 맞춰지기 전에 기록된
+    사건은 at이 실제보다 이를 수 있기 때문이다(2026-10-21 보드 B 재부팅에서 관찰).
+    """
 
     def __init__(self, path, readonly=False):
         self.path = Path(path)
@@ -170,19 +174,19 @@ class Store:
 
     def events_between(self, start_iso, end_iso):
         return self.conn.execute(
-            "SELECT * FROM events WHERE at >= ? AND at < ? ORDER BY at, id", (start_iso, end_iso)
+            "SELECT * FROM events WHERE at >= ? AND at < ? ORDER BY id", (start_iso, end_iso)
         ).fetchall()
 
     def last_event_before(self, before_iso, kinds):
         return self.conn.execute(
             f"SELECT * FROM events WHERE at < ? AND kind IN ({', '.join('?' for _ in kinds)}) "
-            "ORDER BY at DESC, id DESC LIMIT 1",
+            "ORDER BY id DESC LIMIT 1",
             (before_iso, *kinds),
         ).fetchone()
 
     def last_event(self, kinds):
         return self.conn.execute(
-            f"SELECT * FROM events WHERE kind IN ({', '.join('?' for _ in kinds)}) ORDER BY at DESC, id DESC LIMIT 1",
+            f"SELECT * FROM events WHERE kind IN ({', '.join('?' for _ in kinds)}) ORDER BY id DESC LIMIT 1",
             tuple(kinds),
         ).fetchone()
 

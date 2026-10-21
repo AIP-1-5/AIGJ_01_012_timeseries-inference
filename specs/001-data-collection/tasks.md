@@ -90,7 +90,7 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 - [x] T019 [US2] 저장 오류 처리: SQLite 오류는 `store_error` 사건으로 남기고 계속 수집, 복구 불가 오류는 종료 코드 1로 끝내 systemd가 다시 띄우게 하기 (`collector/mqtt_client.py`, `collector/store.py`)
 - [x] T020 [P] [US2] `deploy/collector.service` 템플릿 작성: `After=network-online.target`, `Wants=network-online.target`, `User=`, `WorkingDirectory=`, `EnvironmentFile=<저장소>/.env`, `ExecStart=<저장소>/.venv/bin/python -m collector run`, `Restart=always`, `RestartSec=5`, `RestartPreventExitStatus=2`
 - [x] T021 [US2] `deploy/install-service.sh` 작성: 실행 계정·저장소 경로를 템플릿에 채워 `/etc/systemd/system/collector.service`에 설치, `daemon-reload`, `enable --now`, 다시 실행해도 안전, hostname이 `team5-a`면 재부팅 금지 안내 출력
-- [ ] T022 **(보드)** [US2] 보드 B에서 SC-001·SC-004 시험: quickstart.md §4대로 iptables 차단·해제 3회, 해제 시각→첫 새 저장 시각을 `docs/reports/001-failure-tests.md`에 표로 기록
+- [x] T022 **(보드)** [US2] 보드 B에서 SC-001·SC-004 시험: quickstart.md §4대로 iptables 차단·해제 3회, 해제 시각→첫 새 저장 시각을 `docs/reports/001-failure-tests.md`에 표로 기록
 - [ ] T023 **(보드)** [US2] 보드 B에서 SC-002 시험: `sudo reboot` 후 부팅 완료 시각·서비스 시작 시각·첫 새 저장 시각을 `docs/reports/001-failure-tests.md`에 기록
 
 **Checkpoint**: 완료 조건 1·2 통과

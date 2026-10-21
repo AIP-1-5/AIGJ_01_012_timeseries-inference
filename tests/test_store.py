@@ -43,3 +43,14 @@ def test_readonly_reader_sees_writer_data(tmp_path):
     # 읽는 동안에도 쓸 수 있다
     writer.insert_message([make_row(message_key="m2", measured_at="2026-10-21T00:01:10.000Z")])
     assert reader.row_count() == 2
+
+
+def test_event_order_follows_insertion_not_clock(tmp_path):
+    """부팅 직후 시계가 늦게 맞춰지면 새 사건의 at이 이전 사건보다 이를 수 있다."""
+    store = Store(tmp_path / "c.db")
+    store.add_event("stop", at="2026-10-21T04:12:13.000Z")
+    store.add_event("start", at="2026-10-21T04:12:05.000Z")     # 시계가 아직 안 맞은 채 기록됨
+    store.add_event("connect", at="2026-10-21T04:12:06.000Z")
+    assert store.last_event(["start", "connect", "stop"])["kind"] == "connect"
+    kinds = [e["kind"] for e in store.events_between("2026-10-21T04:00:00.000Z", "2026-10-21T05:00:00.000Z")]
+    assert kinds == ["stop", "start", "connect"]

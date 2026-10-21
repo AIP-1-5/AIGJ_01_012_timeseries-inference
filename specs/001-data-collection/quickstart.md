@@ -61,12 +61,24 @@ SC-001과 같은 방식(와이파이 끄기는 SSH가 끊기므로 쓰지 않음
 ### SC-002 재부팅 → 자동 시작
 
 ```bash
-sudo reboot
-# 다시 접속한 뒤
+sudo iptables -L OUTPUT -n | grep 1883   # 차단이 남아 있지 않은지 (아무것도 안 나와야 함)
+date +%T; sudo reboot
+# 다시 접속한 뒤 (수집기를 직접 켜지 않는다)
 uptime -s
 systemctl show collector -p ActiveEnterTimestamp
-.venv/bin/python -m collector status --hours 1
+journalctl -u collector -b --no-pager | head -5       # 이번 부팅의 수집기 로그
+.venv/bin/python - <<'EOF'
+import sqlite3
+from datetime import datetime, timezone, timedelta
+boot = datetime.now(timezone.utc) - timedelta(seconds=float(open("/proc/uptime").read().split()[0]))
+c = sqlite3.connect("data/collector.db")
+# 수신 시각(보드 시계)은 부팅 직후 틀릴 수 있으므로 기준 시각(nsTime)으로 찾는다
+first = c.execute("select min(measured_at) from measurements where measured_at > ?", (boot.strftime("%Y-%m-%dT%H:%M:%S"),)).fetchone()[0]
+print("부팅 시작(KST):", (boot + timedelta(hours=9)).strftime("%H:%M:%S"), " 부팅 후 첫 측정값(UTC):", first)
+EOF
 ```
+
+설치용 USB가 꽂혀 있으면 설치 화면으로 부팅된다(2026-10-21). 설치를 진행하지 말고 USB를 뽑은 뒤 다시 시작한다.
 
 기대: 로그인 전에 서비스가 시작되어 있고, 부팅 후 첫 저장 시각이 기록된다(보고서에 부팅 완료→첫 저장 시간을 적는다).
 

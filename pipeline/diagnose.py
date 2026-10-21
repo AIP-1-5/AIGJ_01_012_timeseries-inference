@@ -90,8 +90,12 @@ def night_drift(clean, settings):
 
 
 def daily_profile(clean, settings, schedule, mask_period):
-    """시계(5분)별 평균·표준편차, 일정 있는 날 / 없는 날로 나눠서. 학습+검증만."""
-    frame = clean[mask_period & observed_mask(clean)]
+    """시계(5분)별 평균·표준편차, 일정 있는 날 / 없는 날로 나눠서. 학습+검증만.
+
+    보간 칸도 넣는다. 10분 센서는 계절마다 측정이 들어오는 칸(정각대/5분대)이 바뀌어서,
+    측정 칸만 쓰면 이웃 칸이 서로 다른 계절의 평균이 되어 그래프가 톱니 모양이 된다. 고장 칸은 뺀다.
+    """
+    frame = clean[mask_period & clean["value"].notna() & clean["fault"].eq("")]
     local = frame["time"].dt.tz_convert(settings.timezone) - pd.Timedelta(minutes=settings.interval_minutes)
     frame = frame.assign(day=local.dt.date, clock=local.dt.hour + local.dt.minute / 60)  # 칸 시작 시각 기준
     profiles = {}
@@ -156,6 +160,7 @@ def schedule_analysis(clean, settings, schedule, mask_period):
                     "p25_min": float(minutes.quantile(0.25)) if len(minutes) else None,
                     "p75_min": float(minutes.quantile(0.75)) if len(minutes) else None,
                     "median_change": round(float(group["change"].median()), 1) if group["change"].notna().any() else None,
+                    "median_change_90": round(float(group["change_90"].median()), 1) if group["change_90"].notna().any() else None,
                 })
             return rows
 
@@ -265,7 +270,7 @@ def plot_schedule(schedule_out, settings, schedule, korean, out_dir):
         fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
         fig.patch.set_facecolor(SURFACE)
         for ax, column, ylabel in ((axes[0], "response_min", "반응 시간 (분)" if korean else "response (min)"),
-                                   (axes[1], "change", "변화 폭 (ppm)" if korean else "change (ppm)")):
+                                   (axes[1], "change_90", "90분 안 변화 폭 (ppm)" if korean else "change within 90 min (ppm)")):
             style_axes(ax)
             groups = [frame.loc[frame["clock"] == c, column].dropna().to_numpy() for c in clocks]
             box = ax.boxplot(groups, widths=0.5, patch_artist=True, showfliers=True,

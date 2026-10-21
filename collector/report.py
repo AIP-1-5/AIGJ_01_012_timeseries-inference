@@ -213,10 +213,70 @@ def build_report(config, store, start, end, now, excluded=()):
               f"- 보드 수신 시각 − 기준 시각(nsTime) 중앙값: {f'{delay:.1f}초' if delay is not None else '데이터 없음'}",
               f"- 게이트웨이 시각이 기준 시각과 60초 넘게 다른 메시지: {result.skewed_gw_count}건 / {result.message_count}건", ""]
 
-    lines += ["## 해석 (직접 작성)", "",
-              "- 왜 이렇게 나왔나: ",
-              "- 무엇을 해야 하나: ", ""]
+    lines += interpretation_section(result, sum(r["n"] for r in dups))
     return "\n".join(lines), result
+
+
+# 결측 원인별로 "왜"와 "그래서 무엇을"을 제안한다. 최종 문장은 사람이 다듬는다 (constitution V).
+CAUSE_ADVICE = {
+    "collector": ("수집기가 끊겼거나 멈춰 있었다. 장애 시험 시간대가 아니라면 수집기 쪽 문제다.",
+                  "사건 기록과 `journalctl -u collector`로 끊긴 이유를 확인한다. 시험 시간대면 `--exclude`로 빼고 다시 판정한다."),
+    "upstream": ("센서는 보냈지만(fCnt가 건너뜀) 브로커까지 오지 않았다. 무선 신호가 약하거나 게이트웨이·서버 쪽 손실이다.",
+                 "수집기로는 되살릴 수 없다. 센서 위치와 게이트웨이 상태를 운영진에 알리고, 과제 2에서 결측으로 처리한다."),
+    "sensor": ("센서가 보내지 않았다(fCnt가 이어짐). 센서 전원·설정 문제이거나 아직 복구되지 않았다.",
+               "센서 상태 확인을 운영진에 요청한다. 길게 이어지면 그 센서를 학습·평가에서 뺄지 과제 2에서 정한다."),
+    "sensor_battery": ("배터리가 바닥난 센서가 보내지 않았다.",
+                       "배터리 교체를 요청한다. 교체 전까지 이 센서의 공백은 예상된 결측으로 기록한다."),
+    "sensor_reset": ("센서 번호(fCnt)가 처음부터 다시 시작했다. 센서가 재시작했거나 네트워크에 다시 가입했다.",
+                     "재시작 시각을 기록하고 앞뒤 값이 이어지는지 과제 2에서 확인한다."),
+}
+LOW_BATTERY_WARN = 20
+
+
+def interpretation_section(result, duplicate_count):
+    lines = ["## 해석", "", "### 자동 제안 (숫자에서 뽑은 관찰 → 왜 → 그래서 할 일, 검토 후 다듬는다)", ""]
+    failing = [s for s in result.series if s.coverage < PASS_THRESHOLD]
+    if result.series and not failing:
+        lines.append("- **관찰**: 모든 센서·항목의 간격 기준 커버율이 95% 이상이다.")
+    elif failing:
+        names = ", ".join(sorted({f"{s.space} {s.device_profile}" for s in failing}))
+        lines.append(f"- **관찰**: 95% 미만 센서·항목 {len(failing)}개 ({names}). 아래 원인별 제안을 본다.")
+
+    by_cause = {}
+    for gap in result.gaps:
+        by_cause.setdefault(gap.cause, []).append(gap)
+    for cause, gaps in by_cause.items():
+        why, todo = CAUSE_ADVICE[cause]
+        total = sum((g.duration for g in gaps), timedelta())
+        lines += [f"- **관찰**: {CAUSE_LABELS[cause]} 결측 {len(gaps)}개, 합계 {fmt_age(total)} "
+                  f"(장비 {', '.join(sorted({f'`{g.device_id}`' for g in gaps}))})",
+                  f"  - **왜**: {why}",
+                  f"  - **그래서**: {todo}"]
+
+    low = sorted((dev, bat) for dev, bat in result.battery.items() if bat <= LOW_BATTERY_WARN)
+    if low:
+        lines += [f"- **관찰**: 배터리 {LOW_BATTERY_WARN}% 이하 센서 {len(low)}대 "
+                  f"({', '.join(f'`{d}` {b:g}%' for d, b in low)})",
+                  "  - **왜**: 곧 데이터가 끊길 수 있다.",
+                  "  - **그래서**: 끊기기 전에 교체를 요청한다. 끊기면 결측 원인은 배터리로 설명된다."]
+
+    if result.message_count and result.skewed_gw_count:
+        ratio = result.skewed_gw_count / result.message_count
+        lines += [f"- **관찰**: 게이트웨이 시각이 기준 시각과 60초 넘게 다른 메시지 {result.skewed_gw_count}건 ({ratio:.0%})",
+                  "  - **왜**: 일부 게이트웨이의 시계가 맞지 않는다. 메시지의 `time`을 그대로 쓰면 그만큼 시각이 어긋난다.",
+                  "  - **그래서**: 기준 시각을 네트워크 서버 시각(nsTime)으로 둔 설계를 유지하고, 게이트웨이 시계 동기화를 운영진에 요청한다."]
+
+    if result.message_count and duplicate_count:
+        ratio = duplicate_count / (result.message_count + duplicate_count)
+        lines += [f"- **관찰**: 같은 메시지가 두 번 도착한 경우 {duplicate_count}건 (받은 메시지의 {ratio:.1%})",
+                  "  - **왜**: 브로커·네트워크 쪽 재전송이다. 그대로 저장했다면 건수와 학습 데이터가 부풀었다.",
+                  "  - **그래서**: 메시지 ID로 걸러서 저장하므로 학습 데이터에는 영향이 없다. 비율이 갑자기 늘면 브로커 상태를 확인한다."]
+
+    lines += ["", "### 직접 작성", "",
+              "- 왜 이렇게 나왔나: ",
+              "- 그래서 무엇을 해야 하나: ",
+              "- 수집기가 못 하는 것 / 한계: ", ""]
+    return lines
 
 
 def write_report(config, hours=24, start=None, end=None, out=None, exclude=None, now=None):

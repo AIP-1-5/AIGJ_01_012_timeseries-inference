@@ -49,7 +49,8 @@ def test_client_settings(collector):
     client = collector.build_client()
     assert client._reconnect_min_delay == 1
     assert client._reconnect_max_delay == 20
-    assert client._client_id == b"team5-b-jaeung-collector"
+    import getpass, socket
+    assert client._client_id == f"{socket.gethostname()}-{getpass.getuser()}-collector".encode()
     assert client._clean_session is False
 
 

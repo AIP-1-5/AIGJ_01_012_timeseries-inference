@@ -16,9 +16,9 @@ cat docs/cheatsheet.md        # 이 파일 보기
 | 지금 잘 쌓이고 있나 | `./collector.sh status` |
 | 최근 1시간만 | `./collector.sh status --hours 1` |
 | 한 공간만 | `./collector.sh status --space 실습실` |
-| 서비스가 살아 있나 | `systemctl status collector --no-pager` |
-| 최근 로그 20줄 | `journalctl -u collector -n 20 --no-pager` |
-| 로그 계속 보기 (끝내기 Ctrl+C) | `journalctl -u collector -f` |
+| 서비스가 살아 있나 | `systemctl status collector-$USER --no-pager` |
+| 최근 로그 20줄 | `journalctl -u collector-$USER -n 20 --no-pager` |
+| 로그 계속 보기 (끝내기 Ctrl+C) | `journalctl -u collector-$USER -f` |
 | 지금 들어오는 센서 값 보기 (끝내기 Ctrl+C) | `mosquitto_sub -h data.withio.net -p 1883 -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" -t 'application/+/device/+/event/up' \| python3 ~/mqttwatch.py` (먼저 `set -a; source .env; set +a`) |
 
 `status`에서 `← 끊김`이 붙은 줄이 있으면 그 센서가 한동안 안 들어온 것이다.
@@ -28,10 +28,10 @@ cat docs/cheatsheet.md        # 이 파일 보기
 | 하고 싶은 것 | 명령 |
 |---|---|
 | 처음 등록 / 다시 등록 | `sudo deploy/install-service.sh` |
-| 다시 시작 (설정을 고친 뒤) | `sudo systemctl restart collector` |
-| 멈추기 | `sudo systemctl stop collector` |
-| 시작 | `sudo systemctl start collector` |
-| 부팅 시 자동 시작 끄기 | `sudo systemctl disable collector` |
+| 다시 시작 (설정을 고친 뒤) | `sudo systemctl restart collector-$USER` |
+| 멈추기 | `sudo systemctl stop collector-$USER` |
+| 시작 | `sudo systemctl start collector-$USER` |
+| 부팅 시 자동 시작 끄기 | `sudo systemctl disable collector-$USER` |
 
 ## 코드나 설정을 바꿨을 때
 
@@ -40,7 +40,7 @@ git pull
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt   # 의존성이 바뀌었을 때만
 .venv/bin/pytest -q
 ./collector.sh check-config                                         # 설정 점검
-sudo systemctl restart collector
+sudo systemctl restart collector-$USER
 ./collector.sh status --hours 1
 ```
 
@@ -64,13 +64,13 @@ sudo systemctl restart collector
 | 차단 풀기 (이 시각을 기록) | `sudo iptables -D OUTPUT -p tcp --dport 1883 -j REJECT` |
 | 차단이 남아 있는지 확인 | `sudo iptables -L OUTPUT -n \| grep 1883` (아무것도 안 나와야 정상) |
 | 재부팅 | `sudo reboot` |
-| 부팅 시각 / 서비스 시작 시각 | `uptime -s` / `systemctl show collector -p ActiveEnterTimestamp` |
+| 부팅 시각 / 서비스 시작 시각 | `uptime -s` / `systemctl show collector-$USER -p ActiveEnterTimestamp` |
 
 ## 문제가 생겼을 때
 
 | 증상 | 확인 |
 |---|---|
-| `status`가 전부 끊김 | `systemctl status collector`, `journalctl -u collector -n 50` |
+| `status`가 전부 끊김 | `systemctl status collector-$USER`, `journalctl -u collector-$USER -n 50` |
 | 로그에 "설정 오류" | `./collector.sh check-config`로 원인 확인. 서비스는 설정 오류면 다시 시작하지 않는다 |
 | 로그에 "환경변수가 비어 있다" | `.env`에 `MQTT_USERNAME`, `MQTT_PASSWORD`가 있는지 |
 | 브로커에 안 붙음 | `nc -zv -w 5 data.withio.net 1883`, 차단 규칙이 남아 있는지 (위 iptables 확인) |

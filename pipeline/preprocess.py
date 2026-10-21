@@ -14,7 +14,7 @@ from .loader import load_metric, raw_files
 
 CLEAN_COLUMNS = ["time", "space", "metric", "value", "n_raw", "n_sensors", "interpolated", "fault"]
 STAT_COLUMNS = [
-    "space", "metric", "sensors", "raw_rows", "excluded_device_rows", "duplicates", "removed_out_of_range",
+    "space", "metric", "sensors", "raw_rows", "untagged_rows", "excluded_device_rows", "duplicates", "removed_out_of_range",
     "stuck_raw_rows", "slots_total", "slots_observed", "slots_interpolated", "slots_missing", "slots_fault",
 ]
 FAULT_STUCK = "stuck"
@@ -26,12 +26,16 @@ def bin_label(times, interval_minutes):
 
 
 def select_rows(raw, metric, settings):
-    """설정에 있는 공간·센서만 남긴다. (남은 행, 공간별 센서 제외 행 수)"""
+    """설정에 있는 공간·센서만 남긴다. (남은 행, 공간별 제외 센서 행 수, 공간별 센서 ID 없는 행 수)
+
+    센서 ID가 없는 행(2025-08 초기 데이터)은 센서를 구분할 수 없어 중앙값을 만들 수 없으므로 뺀다.
+    """
     frame = raw[raw["metric"].astype(str) == metric]
     space = frame["space"].astype(str)
     device = frame["device_id"].astype(str)
     keep = pd.Series(False, index=frame.index)
-    excluded = {}
+    excluded, untagged = {}, {}
+    tagged = device.ne("")
     for spec in settings.spaces:
         if metric not in spec.metrics:
             continue
@@ -40,12 +44,25 @@ def select_rows(raw, metric, settings):
         if rule != "all":
             allowed &= device.isin(rule)
         in_space = space.eq(spec.space)
-        keep |= in_space & allowed
-        excluded[spec.space] = int((in_space & ~allowed).sum())
+        keep |= in_space & allowed & tagged
+        excluded[spec.space] = int((in_space & ~allowed & tagged).sum())
+        untagged[spec.space] = int((in_space & ~tagged).sum())
     out = frame[keep].copy()
     out["space"] = out["space"].astype(str)
     out["device_id"] = out["device_id"].astype(str)
-    return out, excluded
+    return out, excluded, untagged
+
+
+def drop_near_duplicates(frame, seconds):
+    """같은 센서에서 seconds 안에 다시 온 기록은 같은 메시지가 두 번 저장된 것으로 보고 첫 번째만 남긴다.
+
+    InfluxDB는 받은 순간의 시각으로 저장해서, 두 번 도착한 메시지가 1초 미만 차이로 둘 다 남는다.
+    센서 전송 간격은 최소 1분이라 정상 기록이 빠지지 않는다.
+    """
+    ordered = frame.sort_values(["device_id", "time", "value"], kind="mergesort")
+    same_device = ordered["device_id"].eq(ordered["device_id"].shift())
+    close = ordered["time"].diff() < pd.Timedelta(seconds=seconds)
+    return ordered[~(same_device & close)]
 
 
 def mark_stuck(frame, stuck_minutes, gap_minutes):
@@ -65,21 +82,23 @@ def mark_stuck(frame, stuck_minutes, gap_minutes):
 def clean_metric(raw, metric, settings):
     """한 항목: 원시 → 공간별 5분 칸(격자 맞추기 전). (칸 표, 공간별 집계, 센서 목록)"""
     lo, hi = settings.ranges[metric]
-    frame, excluded = select_rows(raw, metric, settings)
-    stats = {space: {"raw_rows": 0, "excluded_device_rows": n, "duplicates": 0, "removed_out_of_range": 0,
-                     "stuck_raw_rows": 0, "sensors": 0} for space, n in excluded.items()}
+    frame, excluded, untagged = select_rows(raw, metric, settings)
+    stats = {space: {"raw_rows": n + untagged[space], "untagged_rows": untagged[space], "excluded_device_rows": n,
+                     "duplicates": 0, "removed_out_of_range": 0, "stuck_raw_rows": 0, "sensors": 0}
+             for space, n in excluded.items()}
     for space, count in frame.groupby("space").size().items():
-        stats[space]["raw_rows"] = int(count) + stats[space]["excluded_device_rows"]
+        stats[space]["raw_rows"] += int(count)
 
-    before = frame.groupby("space").size()
-    frame = frame.sort_values(["device_id", "time"], kind="mergesort").drop_duplicates(["device_id", "time"])
-    for space, count in (before - frame.groupby("space").size()).fillna(0).items():
-        stats[space]["duplicates"] = int(count)
-
+    # 범위 밖(깨진 값)을 먼저 지운다. 중복 중 하나가 깨진 값이면 정상 값이 남도록
     in_range = frame["value"].between(lo, hi)
     for space, count in (~in_range).groupby(frame["space"]).sum().items():
         stats[space]["removed_out_of_range"] = int(count)
-    frame = frame[in_range].copy()
+    frame = frame[in_range]
+
+    before = frame.groupby("space").size()
+    frame = drop_near_duplicates(frame, settings.duplicate_seconds).copy()
+    for space, count in before.sub(frame.groupby("space").size(), fill_value=0).items():
+        stats[space]["duplicates"] = int(count)
 
     frame["stuck"] = mark_stuck(frame, settings.stuck_minutes.get(metric, 60), settings.max_interp_minutes)
     for space, count in frame.groupby("space")["stuck"].sum().items():
@@ -235,10 +254,10 @@ def run(settings):
     (settings.processed_dir / "preprocess_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"\n정제 결과: {meta['data_start']} ~ {meta['data_end']} (UTC), {len(clean):,}칸 → {clean_path(settings)}")
-    print(f"{'공간':<8} {'항목':<12} {'센서':>4} {'범위 밖':>8} {'중복':>6} {'관측':>7} {'보간':>7} {'결측':>7} {'고장':>6}")
+    print(f"{'공간':<8} {'항목':<12} {'센서':>4} {'ID없음':>7} {'범위 밖':>8} {'중복':>7} {'관측':>7} {'보간':>7} {'결측':>7} {'고장':>6}")
     for row in stats.itertuples():
         total = max(row.slots_total, 1)
-        print(f"{row.space:<8} {row.metric:<12} {row.sensors:>4} {row.removed_out_of_range:>8,} {row.duplicates:>6,} "
+        print(f"{row.space:<8} {row.metric:<12} {row.sensors:>4} {row.untagged_rows:>7,} {row.removed_out_of_range:>8,} {row.duplicates:>7,} "
               f"{row.slots_observed / total:>7.1%} {row.slots_interpolated / total:>7.1%} "
               f"{row.slots_missing / total:>7.1%} {row.slots_fault / total:>6.1%}")
     if meta["unconfigured_spaces"]:

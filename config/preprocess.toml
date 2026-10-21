@@ -11,6 +11,7 @@ start = "2025-08-08"
 [resample]
 interval_minutes = 5          # 칸 [t-5분, t)의 평균을 t에 붙인다
 max_interp_minutes = 15       # 이 길이 이하 결측만 선형 보간
+duplicate_seconds = 10        # 같은 센서가 이 안에 다시 보낸 기록은 중복 (InfluxDB에 1초 미만 차이로 두 번 저장된 메시지)
 
 [ranges]                      # 허용 범위 (밖이면 제거)
 co2 = [300, 5000]

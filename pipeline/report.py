@@ -23,13 +23,13 @@ def pct(value):
 def missing_table(diagnosis, settings):
     stats = pd.DataFrame(diagnosis["quality"]["stats"])
     by_period = pd.DataFrame(diagnosis["quality"]["by_period"])
-    lines = ["| 공간 | 항목 | 센서 | 범위 밖 제거 | 중복 | 관측 | 보간 | 결측 | 고장 의심 | 시험 기간 관측 |",
-             "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    lines = ["| 공간 | 항목 | 센서 | 센서 ID 없음 | 범위 밖 제거 | 중복 | 관측 | 보간 | 결측 | 고장 의심 | 시험 기간 관측 |",
+             "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for row in stats.itertuples():
         total = max(row.slots_total, 1)
         test = by_period[(by_period["period"] == "test") & (by_period["space"] == row.space) & (by_period["metric"] == row.metric)]
         test_obs = pct(test["observed"].iloc[0]) if len(test) else "-"
-        lines.append(f"| {row.space} | {row.metric} | {row.sensors} | {row.removed_out_of_range:,} | {row.duplicates:,} | "
+        lines.append(f"| {row.space} | {row.metric} | {row.sensors} | {row.untagged_rows:,} | {row.removed_out_of_range:,} | {row.duplicates:,} | "
                      f"{pct(row.slots_observed / total)} | {pct(row.slots_interpolated / total)} | "
                      f"{pct(row.slots_missing / total)} | {pct(row.slots_fault / total)} | {test_obs} |")
     return "\n".join(lines)
@@ -145,6 +145,8 @@ def build(settings, schedule, clean, split, normalization, diagnosis, baseline_t
     for metric, (lo, hi) in settings.ranges.items():
         lines.append(f"| {metric} 허용 범위 | {lo:g} ~ {hi:g} | {reasons.get(metric, '')} |")
     lines += [
+        "| 센서 ID 없는 행 | 뺀다 | 2025-08 초기 데이터는 `device_id` 태그가 없어 센서를 구분할 수 없다 |",
+        f"| 중복 | 같은 센서가 {settings.duplicate_seconds:g}초 안에 다시 보낸 기록은 첫 번째만 | InfluxDB가 받은 순간 시각으로 저장해 두 번 도착한 메시지가 1초 미만 차이로 둘 다 남는다. 전송 간격은 최소 1분 |",
         f"| 칸 | {settings.interval_minutes}분, [t−{settings.interval_minutes}분, t) → t | 과제 3이 5분 간격 예측. 시각 t에는 t 이전 값만 들어가 미래가 섞이지 않는다 |",
         "| 공간 값 | 센서들의 중앙값 | 한 대가 고장 나도 크게 흔들리지 않는다 |",
         f"| 짧은 결측 | {settings.max_interp_minutes}분 이하만 선형 보간 | 10분 센서의 메시지 1건 손실까지만 채운다 |",

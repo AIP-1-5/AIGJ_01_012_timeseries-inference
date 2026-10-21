@@ -52,8 +52,8 @@ def test_range_filter_counts_and_median(settings):
     assert first["value"] == 700            # 600, 700, 1000~1004 평균 → 중앙값 700
     assert first["n_sensors"] == 3 and first["n_raw"] == 15
     row = stats.set_index(["space", "metric"]).loc[("실습실", "co2")]
-    assert row["removed_out_of_range"] == 1     # 9999 (0은 같은 시각 중복으로 먼저 빠진다)
-    assert row["duplicates"] == 1
+    assert row["removed_out_of_range"] == 2     # 0과 9999. 깨진 값을 먼저 지워서 같은 시각의 정상 값 600이 남는다
+    assert row["duplicates"] == 0
     assert row["sensors"] == 3
 
 
@@ -138,3 +138,26 @@ def test_same_input_same_output(settings, tmp_path):
     pd.testing.assert_series_equal(loaded["interpolated"], first[0]["interpolated"])
     assert (loaded["time"] == first[0]["time"]).all()
     assert np.allclose(loaded["value"].fillna(-1), first[0]["value"].fillna(-1), atol=1e-4)
+
+
+def test_near_duplicates_removed(settings):
+    # 같은 메시지가 0.3초 차이로 두 번 저장됨 (InfluxDB 실제 사례). 정상 간격(60초)은 그대로
+    rows = []
+    for m in range(0, 20):
+        rows.append([minutes(m), "a", "사무실", "", "co2", 600 + m])
+        if m % 2 == 0:
+            rows.append([(T0 + pd.Timedelta(minutes=m, seconds=0.3)).isoformat(), "a", "사무실", "", "co2", 600 + m])
+    clean, stats, _ = preprocess({"co2": raw(rows)}, settings)
+    row = stats.set_index(["space", "metric"]).loc[("사무실", "co2")]
+    assert row["duplicates"] == 10
+    office = series(clean, "사무실", "co2")
+    assert office.loc[T0 + pd.Timedelta(minutes=5), "n_raw"] == 5     # 중복이 칸 개수를 부풀리지 않음
+
+
+def test_untagged_rows_excluded(settings):
+    rows = [[minutes(m), "", "실습실", "", "co2", 2000] for m in range(10)]          # 센서 ID 없는 초기 데이터
+    rows += [[minutes(m), "a", "실습실", "", "co2", 600 + m] for m in range(10)]
+    clean, stats, _ = preprocess({"co2": raw(rows)}, settings)
+    row = stats.set_index(["space", "metric"]).loc[("실습실", "co2")]
+    assert row["untagged_rows"] == 10 and row["raw_rows"] == 20 and row["sensors"] == 1
+    assert series(clean, "실습실", "co2")["value"].max() < 700

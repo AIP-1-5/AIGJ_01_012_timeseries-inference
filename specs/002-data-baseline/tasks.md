@@ -44,7 +44,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 
 - [x] T009 `pipeline/influx.py`: 월 단위 Flux 조회(`urllib`, CSV 응답) → `data/raw/influx/<항목>/<YYYY-MM>.csv.gz` 스트리밍 저장, 받은 달 건너뛰기·이번 달 다시 받기, 토큰을 로그에 남기지 않기
 - [x] T010 `check-time` 명령: 과제 1 수집기 DB와 InfluxDB의 최근 이틀 같은 센서·항목 값을 짝지어 시각 차이 분포 출력 (research.md R2)
-- [ ] T011 **(보드 B)** `export-influx --from 2025-08` 실행, 파일 크기·행 수 확인, `check-time` 결과 기록
+- [x] T011 **(보드 B)** `export-influx --from 2025-08` 실행, 파일 크기·행 수 확인, `check-time` 결과 기록 — 4개 항목 × 15개월, 57MB. 시각 차이 0.2초(보정 불필요). 2025-08은 센서 ID 없음, 근접 중복 발견 → 정제 규칙 추가
 - [ ] T012 **(맥)** `scp`로 `data/raw/influx` 가져오기
 
 ---
@@ -143,7 +143,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 ## 진행 상황 (2026-10-21)
 
 - 코드·단위 시험 완료 (시험 85개 통과, pandas 2.2·3.0). 합성 120일치로 preprocess → report 전 과정 확인
-- 남은 일: 실제 데이터 단계 T011(보드 B 내려받기·시각 확인) → T012(맥으로 가져오기) → T016·T020·T025·T029(실행·확인·커밋) → T032(해석) → T035
+- T011 완료 (2026-10-21). 남은 일: T012(맥으로 가져오기) → T016·T020·T025·T029(실행·확인·커밋) → T032(해석) → T035
 - 시작점: `quickstart.md` 1단계
 
 ## Dependencies & Execution Order

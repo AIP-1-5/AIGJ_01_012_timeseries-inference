@@ -31,8 +31,11 @@ if [[ "$(hostname)" == "team5-a" ]]; then
     echo "주의: 보드 A다. 재부팅 시험은 보드 B에서만 한다. 서비스 등록만 진행한다."
 fi
 
-# 설정 점검 (실패하면 설치하지 않는다)
-sudo -u "$RUN_USER" bash -c "cd '$REPO' && set -a && source .env && set +a && .venv/bin/python -m collector check-config"
+# 설정과 .env의 브로커 계정 점검 (실패하면 설치하지 않는다)
+if ! sudo -u "$RUN_USER" bash -c "cd '$REPO' && set -a && source .env && set +a && .venv/bin/python -m collector check-config --credentials"; then
+    echo "설정 또는 .env가 올바르지 않아 설치를 멈춘다 (.env에 MQTT_USERNAME, MQTT_PASSWORD를 넣었는지 확인)" >&2
+    exit 1
+fi
 
 # 예전 이름(collector.service)으로 이 계정이 등록한 서비스가 있으면 정리한다
 LEGACY=/etc/systemd/system/collector.service
@@ -49,4 +52,6 @@ systemctl restart "$NAME.service"
 
 echo "설치 완료: $UNIT (계정 $RUN_USER, 저장소 $REPO)"
 echo "확인: systemctl status $NAME  /  journalctl -u $NAME -f"
+sleep 5
 systemctl --no-pager --lines=5 status "$NAME.service" || true
+echo "수집 확인은 1~2분 뒤: ./collector.sh status --hours 1"

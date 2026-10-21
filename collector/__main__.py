@@ -43,6 +43,13 @@ def cmd_check_config(args, config):
     print(f"설정 OK: {config.path}")
     print(f"  브로커: {config.broker.host}:{config.broker.port}, client_id={config.broker.client_id}")
     print(f"  저장소: {config.storage_path}")
+    try:
+        config.broker.credentials()
+        print(f"  계정: {config.broker.username_env}, {config.broker.password_env} 설정됨")
+    except ConfigError as exc:
+        if args.credentials:
+            raise
+        print(f"  계정: 비어 있음 ({exc})")
     for source in config.sources:
         print(f"  소스 {source.name}: {source.topic} (항목: {', '.join(source.include) or '숫자 전부'})")
     if not args.sample:
@@ -113,6 +120,7 @@ def build_parser():
     p = sub.add_parser("check-config", parents=[common], help="설정 점검, 샘플 메시지 해석")
     p.add_argument("--sample", help="해석해 볼 메시지 파일(JSON)")
     p.add_argument("--topic", help="샘플의 토픽 (생략하면 첫 번째 소스)")
+    p.add_argument("--credentials", action="store_true", help="브로커 계정 환경변수가 비어 있으면 실패 (서비스 설치 전 점검용)")
     p.set_defaults(func=cmd_check_config)
     return parser
 

@@ -133,7 +133,7 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 
 - [x] T031 [P] [US4] `config/examples/format-change.toml` 작성: `broker.host = "localhost"`, 바뀐 경로(`fields.values`, `fields.space`)와 `metrics.rename`, 다른 `client_id`·`storage.path` (contracts/config.md "형식 변경 대응 예시")
 - [x] T032 [US4] `check-config` 명령 구현: 설정 검증, `--sample`로 해석 결과(저장될 행)만 출력하고 저장하지 않음 (`collector/__main__.py`)
-- [ ] T033 **(보드)** [US4] 보드 B에서 SC-005: 로컬 `mosquitto` 실행, `mosquitto_pub`으로 바뀐 형식 전송, 설정만 고쳐 대응한 과정(바꾼 줄, 코드 diff 없음)을 `docs/reports/001-format-change.md`에 기록
+- [x] T033 **(보드)** [US4] 보드 B에서 SC-005: 로컬 `mosquitto` 실행, `mosquitto_pub`으로 바뀐 형식 전송, 설정만 고쳐 대응한 과정(바꾼 줄, 코드 diff 없음)을 `docs/reports/001-format-change.md`에 기록
 
 ---
 
@@ -159,7 +159,7 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 ## Phase 9: Polish & 보드 A 배포
 
 - [x] T037 [P] `README.md`에 수집기 사용법 절 추가(설치, `run`/`status`/`report`/`export`, 서비스 등록), quickstart.md 링크
-- [ ] T038 **(보드)** 보드 A 배포 (내 계정): `nc -zv -w 5 data.withio.net 1883` 확인 → https로 clone·`.venv`·`.env` 준비 → `./collector.sh check-config`로 client_id가 `team5-a-<계정>-collector`인지 확인 → `sudo deploy/install-service.sh`(서비스 `collector-<계정>`) → `status` 확인. 보드 A에서는 코드·설정을 고치지 않는다
+- [x] T038 **(보드)** 보드 A 배포 (내 계정): `nc -zv -w 5 data.withio.net 1883` 확인 → https로 clone·`.venv`·`.env` 준비 → `./collector.sh check-config`로 client_id가 `team5-a-<계정>-collector`인지 확인 → `sudo deploy/install-service.sh`(서비스 `collector-<계정>`) → `status` 확인. 보드 A에서는 코드·설정을 고치지 않는다
 - [ ] T039 **(보드)** 보드 A에서 24시간 가동 후 `report`로 커버율 재확인, `docs/reports/001-collection-status.md`에 보드 A 결과 추가
 - [ ] T040 quickstart.md 전 과정을 처음부터 따라 해 보고 어긋난 명령·설명 수정
 

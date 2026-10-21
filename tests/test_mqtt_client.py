@@ -134,3 +134,18 @@ def test_wait_for_clock_sync(collector, tmp_path, monkeypatch):
     assert collector.wait_for_clock_sync(timeout=3) == 3            # 끝까지 안 맞춰지면 timeout 후 진행
     (sync_dir / "synchronized").touch()
     assert collector.wait_for_clock_sync(timeout=3) == 0
+
+
+def test_check_config_credentials_flag(root, monkeypatch, capsys):
+    from collector.__main__ import EXIT_CONFIG, EXIT_OK, main
+
+    monkeypatch.chdir(root)
+    monkeypatch.delenv("MQTT_USERNAME", raising=False)
+    monkeypatch.delenv("MQTT_PASSWORD", raising=False)
+    assert main(["check-config"]) == EXIT_OK                     # 점검만 할 때는 계정이 없어도 된다
+    assert "계정: 비어 있음" in capsys.readouterr().out
+    assert main(["check-config", "--credentials"]) == EXIT_CONFIG  # 서비스 설치 전에는 실패
+    monkeypatch.setenv("MQTT_USERNAME", "u")
+    monkeypatch.setenv("MQTT_PASSWORD", "p")
+    assert main(["check-config", "--credentials"]) == EXIT_OK
+    assert "설정됨" in capsys.readouterr().out

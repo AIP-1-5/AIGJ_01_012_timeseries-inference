@@ -127,7 +127,7 @@ mkdir -p ~/work && cd ~/work
 git clone https://github.com/AIP-1-5/AIGJ_01_012_timeseries-inference.git   # 공개 저장소라 https면 SSH 키 불필요
 cd AIGJ_01_012_timeseries-inference
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
-nano .env                                  # MQTT 계정
+nano .env                                  # MQTT 계정 (nano가 없으면 sudo apt install -y nano)
 ./collector.sh check-config                # client_id가 team5-a-<계정>-collector로 나오는지
 sudo deploy/install-service.sh             # collector-<계정> 서비스로 등록
 ```

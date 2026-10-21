@@ -121,6 +121,8 @@ class Engine:
         onehot = np.zeros((1, len(meta["spaces"])), np.float32)
         onehot[0, meta["spaces"].index(space)] = 1
         delta = self.models.forecast.run(None, {"past": past, "future": future, "space": onehot})[0][0]
+        if meta.get("target") == "value":                 # 값 직접 예측 모델이면 지금 값을 빼서 변화량으로 (학습 평가와 같게)
+            delta = delta - np.nan_to_num(z[p])[None, :]
         result = {}
         fresh = pd.Timedelta(minutes=float(self.cfg["data"].get("stale_min_minutes", 15)))
         for j, metric in enumerate(("co2", "temperature")):
@@ -129,8 +131,10 @@ class Engine:
                 continue
             if last_label - now_value.index[-1] > fresh:          # 최근 값이 끊겼으면 예측하지 않는다 (오래된 값으로 '지금'을 대신하지 않음)
                 continue
-            base = float(now_value.iloc[-1])
-            result[metric] = {"now": round(base, 2), "as_of": now_value.index[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
+            if not observed[p, j]:                               # 학습 표본도 지금 칸이 관측값일 때만 썼다
+                continue
+            base = float(y[p, j])
+            result[metric] = {"now": round(base, 2), "as_of": last_label.strftime("%Y-%m-%dT%H:%M:%SZ"),
                               "points": [{"minutes": 5 * (k + 1), "value": round(base + float(delta[k, j]) * float(std[j]), 2)}
                                          for k in range(12)]}
         return result, None if result else "최근 값이 끊김"

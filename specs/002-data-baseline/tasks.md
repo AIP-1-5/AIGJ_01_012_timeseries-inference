@@ -45,7 +45,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 - [x] T009 `pipeline/influx.py`: 월 단위 Flux 조회(`urllib`, CSV 응답) → `data/raw/influx/<항목>/<YYYY-MM>.csv.gz` 스트리밍 저장, 받은 달 건너뛰기·이번 달 다시 받기, 토큰을 로그에 남기지 않기
 - [x] T010 `check-time` 명령: 과제 1 수집기 DB와 InfluxDB의 최근 이틀 같은 센서·항목 값을 짝지어 시각 차이 분포 출력 (research.md R2)
 - [x] T011 **(보드 B)** `export-influx --from 2025-08` 실행, 파일 크기·행 수 확인, `check-time` 결과 기록 — 4개 항목 × 15개월, 57MB. 시각 차이 0.2초(보정 불필요). 2025-08은 센서 ID 없음, 근접 중복 발견 → 정제 규칙 추가
-- [ ] T012 **(맥)** `scp`로 `data/raw/influx` 가져오기
+- [x] T012 **(맥)** `scp`로 `data/raw/influx` 가져오기
 
 ---
 
@@ -63,7 +63,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 
 - [x] T014 [US1] `pipeline/preprocess.py`: 범위 제거 → 중복 제거 → 센서별 5분 칸 평균 → 공간 중앙값(`n_raw`, `n_sensors`) → 짧은 결측 보간 → 값 고정 표시 → 집계(`clean_stats`) (research.md R4·R5·R6·R9)
 - [x] T015 [US1] `preprocess` 명령 연결, 출력 `data/processed/clean_5min.csv.gz`, `clean_stats.csv`
-- [ ] T016 **(맥)** [US1] 실제 데이터로 `preprocess` 실행, 공간·항목별 결측률과 제거 건수 확인
+- [x] T016 **(맥)** [US1] 실제 데이터로 `preprocess` 실행, 공간·항목별 결측률과 제거 건수 확인
 
 ---
 
@@ -81,7 +81,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 
 - [x] T018 [US2] `pipeline/split.py`: 분할 계산·저장·불러오기, `compute_normalization(clean, split)`·저장·불러오기 (research.md R7·R8)
 - [x] T019 [US2] `split` 명령 연결(`--force` 없으면 기존 파일 보존)
-- [ ] T020 **(맥)** [US2] 실제 데이터로 `split` 실행, 시험 기간에 큰 결측·고장이 몰리지 않았는지 보고 필요하면 조정, `artifacts/split.json`·`normalization.json` 커밋
+- [x] T020 **(맥)** [US2] 실제 데이터로 `split` 실행, 시험 기간에 큰 결측·고장이 몰리지 않았는지 보고 필요하면 조정, `artifacts/split.json`·`normalization.json` 커밋
 
 ---
 
@@ -100,7 +100,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 - [x] T022 [US3] `pipeline/schedule.py`: 일정 파일·공휴일·일정 변화 시각
 - [x] T023 [US3] `pipeline/diagnose.py`: 결측률·제거 건수 표, 평일 시간대별 평균(±표준편차) 그래프 `docs/reports/figures/002-daily-<항목>.png`(공간별 작은 그림), 반응 시간 분포 `002-response.png`(종류별), 어긋난 날 목록, 밤 CO₂ 바닥값 기반 영점 틀어짐 의심 표시 (research.md R9·R11)
 - [x] T024 [US3] `diagnose` 명령 연결, `data/processed/diagnosis.json`
-- [ ] T025 **(맥)** [US3] 실제 데이터로 `diagnose` 실행, 그래프 확인 (점심 감소가 퇴실보다 작은지 등)
+- [x] T025 **(맥)** [US3] 실제 데이터로 `diagnose` 실행, 그래프 확인 (점심 감소가 퇴실보다 작은지 등)
 
 ---
 
@@ -118,7 +118,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 
 - [x] T027 [US4] `pipeline/baselines.py`: 평가 시점 만들기·저장·불러오기, 기준선 3종 예측, 공간별·전체·평일 실습 시간 MAE와 평가 시점 수 (research.md R10)
 - [x] T028 [US4] `baselines` 명령 연결, `docs/reports/002-baselines.md` 성능표(측정 조건 포함)
-- [ ] T029 **(맥)** [US4] 실제 데이터로 `baselines` 실행, `artifacts/eval_points.csv`·성능표 커밋
+- [x] T029 **(맥)** [US4] 실제 데이터로 `baselines` 실행, `artifacts/eval_points.csv`·성능표 커밋
 
 ---
 
@@ -128,7 +128,7 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 
 - [x] T030 [US5] `pipeline/report.py`: 진단서 초안 `docs/reports/002-diagnosis.md` (측정 조건, 정제 규칙과 이유, 결측률 표, 분할 기준과 "왜 무작위로 섞으면 안 되나", 패턴 그래프 링크, 반응 시간 중앙값·어긋난 날, 고장 의심과 처리, 기준선 요약, 자동 관찰 제안, 사람이 쓸 해석 칸)
 - [x] T031 [US5] `report` 명령 연결
-- [ ] T032 **(맥)** [US5] 진단서 해석 작성: 가장 강한 기준선과 이유(완료 조건 3), '어제 같은 시각'이 약한/강한 이유와 강할 만한 공간, 고장 구간을 학습·평가에 넣을지, 점심 1~3명 잔류가 패턴에 보이는지
+- [x] T032 **(맥)** [US5] 진단서 해석 작성: 가장 강한 기준선과 이유(완료 조건 3), '어제 같은 시각'이 약한/강한 이유와 강할 만한 공간, 고장 구간을 학습·평가에 넣을지, 점심 1~3명 잔류가 패턴에 보이는지
 
 ---
 
@@ -143,8 +143,16 @@ description: "Task list for 과제 2 — 데이터 이해와 기준선"
 ## 진행 상황 (2026-10-21)
 
 - 코드·단위 시험 완료 (시험 85개 통과, pandas 2.2·3.0). 합성 120일치로 preprocess → report 전 과정 확인
-- T011 완료 (2026-10-21). 남은 일: T012(맥으로 가져오기) → T016·T020·T025·T029(실행·확인·커밋) → T032(해석) → T035
+- T011~T032 완료 (2026-10-21, 실데이터). 남은 일: T034(다음 spec 초안에 옮기기), T035. 처음 남은 일 목록: T012(맥으로 가져오기) → T016·T020·T025·T029(실행·확인·커밋) → T032(해석) → T035
 - 시작점: `quickstart.md` 1단계
+
+### 확인 기준 결과 (2026-10-21)
+
+| 완료 조건 | 결과 | 근거 |
+|---|---|---|
+| 1. 정규화는 학습 기간만 | 통과 | `artifacts/normalization.json` computed_from=train, 기간 2025-09-03 ~ 2026-08-26 = split.json train. 시험 `test_normalization_ignores_val_and_test_values` 통과(검증·시험 값을 바꿔도 같음) |
+| 2. 같은 시점·같은 조건 | 통과 | `artifacts/eval_points.csv` 48,312개(h별 표시) 커밋. 같은 h에서 세 기준선이 같은 시점. `test_same_input_same_points_and_mae`·`test_existing_points_are_reused` 통과 |
+| 3. 가장 강한 기준선과 이유 | 통과 | 현재값 유지(60분 CO₂ 36.3 ppm, 온도 0.15℃). 이유는 `docs/reports/002-diagnosis.md` 8절 |
 
 ## Dependencies & Execution Order
 

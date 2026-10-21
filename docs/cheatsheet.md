@@ -72,6 +72,7 @@ sudo systemctl restart collector-$USER
 |---|---|
 | `status`가 전부 끊김 | `systemctl status collector-$USER`, `journalctl -u collector-$USER -n 50` |
 | 로그에 "설정 오류" | `./collector.sh check-config`로 원인 확인. 서비스는 설정 오류면 다시 시작하지 않는다 |
-| 로그에 "환경변수가 비어 있다" | `.env`에 `MQTT_USERNAME`, `MQTT_PASSWORD`가 있는지 |
+| 로그에 "환경변수가 비어 있다" | `.env`에 `MQTT_USERNAME`, `MQTT_PASSWORD`가 있는지 (`./collector.sh check-config --credentials`). 고친 뒤 `sudo systemctl restart collector-$USER` (설정 오류로 멈춘 서비스는 자동으로 다시 시작하지 않는다) |
+| `nano: command not found` | `sudo apt install -y nano` (apt가 권해도 `autoremove`는 하지 않는다) |
 | 브로커에 안 붙음 | `nc -zv -w 5 data.withio.net 1883`, 차단 규칙이 남아 있는지 (위 iptables 확인) |
 | `git pull`이 10.250.250.10에서 막힘 | 유선의 DNS를 쓰고 있다. `sudo nmcli connection modify "Wired connection 1" ipv4.ignore-auto-dns yes ipv4.never-default yes` 후 `sudo nmcli connection up "Wired connection 1"` |

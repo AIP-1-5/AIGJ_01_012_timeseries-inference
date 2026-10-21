@@ -59,6 +59,8 @@ class Engine:
         self.settings, self.schedule, self.collector_cfg, self.cfg, self.models = settings, schedule, collector_cfg, cfg, models
         self.db = settings.root / cfg["data"]["collector_db"]
         self.spaces = [s.space for s in settings.spaces]
+        self.pending = {}            # (slug, 항목, 예측 대상 시각) → 60분 전에 낸 예측값 (자체 채점용, 메모리에만)
+        self.scored = {}             # (slug, 항목) → [(대상 시각, 절대 오차)]
 
     # ---------- 데이터 ----------
 
@@ -181,6 +183,25 @@ class Engine:
                 out[metric] = sorted(bad["device_id"].astype(str).unique().tolist())
         return out
 
+    def self_check(self, slug, frame, forecast, last_label):
+        """60분 전에 낸 예측을 지금 실제값으로 채점한다 (심화 B). 최근 24시간 평균 절대 오차."""
+        out = {}
+        for metric in ("co2", "temperature"):
+            fc = (forecast or {}).get(metric)
+            if fc:
+                target = last_label + pd.Timedelta(minutes=60)
+                self.pending[(slug, metric, target)] = fc["points"][-1]["value"]
+            errors = self.scored.setdefault((slug, metric), [])
+            for key in [k for k in self.pending if k[0] == slug and k[1] == metric and k[2] <= last_label]:
+                predicted = self.pending.pop(key)
+                actual = frame[metric].get(key[2]) if metric in frame else None
+                if actual is not None and not np.isnan(actual):
+                    errors.append((key[2], abs(predicted - float(actual))))
+            errors[:] = [e for e in errors if e[0] > last_label - pd.Timedelta(hours=24)]
+            if errors:
+                out[metric] = {"mae_60": round(float(np.mean([e[1] for e in errors])), 2), "n": len(errors)}
+        return out
+
     # ---------- 한 주기 ----------
 
     def run_cycle(self, now=None):
@@ -226,6 +247,12 @@ class Engine:
                 entry["anomaly"] = self.anomaly(frame, space, last_label)
                 entry["rules"] = self.rule_alarms(frame, space, last_label)
                 entry["state"] = self.state(frame, space, last_label)
+                entry["monitor"] = self.self_check(spec.slug, frame, entry["forecast"], last_label)
+                limit = float(self.cfg.get("monitor", {}).get("co2_mae_alert", 75))
+                co2_check = entry["monitor"].get("co2")
+                if co2_check and co2_check["n"] >= 12 and co2_check["mae_60"] > limit:
+                    alerts.append({"type": "forecast_drift", "level": "info", "mae_60": co2_check["mae_60"],
+                                   "message": f"최근 24시간 CO₂ 60분 예측 오차 {co2_check['mae_60']:.0f} ppm (기준 {limit:.0f}) — 재학습 검토"})
                 co2 = (entry["forecast"] or {}).get("co2")
                 if co2 and co2["now"] < CO2_LIMIT:
                     over = [p["minutes"] for p in co2["points"] if p["value"] >= CO2_LIMIT]

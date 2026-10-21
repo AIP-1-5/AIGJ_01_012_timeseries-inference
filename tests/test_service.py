@@ -239,3 +239,19 @@ def test_out_of_range_rule_alert(root, engine):
     alert = next(a for a in result["spaces"]["lab"]["alerts"] if a["type"] == "rule_out_of_range")
     assert alert["cause"] == "co2" and alert["devices"] == ["lab-2"]
     assert result["spaces"]["lab"]["forecast"]["co2"]["now"] < 5000          # 범위 밖 값은 계산에서 빠짐
+
+
+def test_self_check_scores_forecast_after_60_minutes(root, engine):
+    """60분 전에 낸 예측을 실제값으로 채점한다 (심화 B)."""
+    from service.engine import Engine
+
+    fresh = Engine(engine.settings, engine.schedule, engine.collector_cfg, engine.cfg, engine.models)
+    start = NOW - pd.Timedelta(hours=2)
+    first = fresh.run_cycle(start)
+    assert first["spaces"]["lab"]["monitor"] == {}
+    for k in range(1, 13):
+        fresh.run_cycle(start + pd.Timedelta(minutes=5 * k))
+    later = fresh.run_cycle(start + pd.Timedelta(minutes=65))
+    check = later["spaces"]["lab"]["monitor"]["co2"]
+    # 0 초기화 모델 = 현재값 유지 → 오차 = |y(t+60) − y(t)|, 합성 데이터 수업 중이라 0 근처
+    assert check["n"] >= 1 and check["mae_60"] >= 0

@@ -64,6 +64,7 @@ $ curl -s 'http://100.113.228.46:8080/v1/spaces/meeting/forecast?minutes=30'
 | `rules[]` | `{rule, cause, time}` | 최근 칸에 걸린 규칙 경보 (`spike` 급변, `stuck` 값 고정, `night_level` 밤 영점, `hot_class`·`high_class` 수업 중 과열·과다) |
 | `state.occupied` / `.occupied_probability` | 참·거짓 / 0~1 | 사용 중 여부 (센서 값만으로 추정) |
 | `state.ventilation_alert` / `.ventilation_probability` / `.co2_over_limit_now` | 참·거짓 / 0~1 / 참·거짓 | 30분 안 CO₂ 1,000 ppm 도달 예상 또는 이미 초과 |
+| `monitor.co2` / `.temperature` | `{mae_60, n}` (ppm / ℃, 개수) | 자체 채점: 60분 전에 낸 예측과 지금 실제값의 평균 절대 오차(최근 24시간, 서비스 재시작 시 초기화) |
 | `alerts[]` | §5 | 지금 켜진 경보 |
 
 ```json
@@ -91,6 +92,7 @@ $ curl -s 'http://100.113.228.46:8080/v1/spaces/meeting/forecast?minutes=30'
 | `ventilation` | warning | `state.ventilation_alert`가 참 | |
 | `anomaly` | warning | `anomaly.is_anomaly`가 참 | `cause` |
 | `rule_<규칙>` | warning | `rules[]`에 걸린 규칙 | `cause` |
+| `forecast_drift` | info | `monitor.co2.mae_60`이 75 ppm 초과(채점 12건 이상). 재학습 검토 신호 | `mae_60` |
 | `rule_out_of_range` | warning | 최근 칸에 허용 범위(CO₂ 300~5000, 온도 0~45, 습도 1~99) 밖 원시값. 그 값은 계산에서 뺀다 | `cause`, `devices` |
 
 MQTT `alerts` 메시지에는 위 필드에 `space`, `slug`, `time`, `status`가 더 붙는다. `status`는 `active`(처음), `repeat`(30분째 계속), `cleared`(사라짐) 중 하나다.

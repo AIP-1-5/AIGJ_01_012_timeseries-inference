@@ -73,10 +73,14 @@ systemctl show collector -p ActiveEnterTimestamp
 ### SC-005 형식 변경을 설정만으로 대응
 
 ```bash
-sudo apt install -y mosquitto                               # 시험용 로컬 브로커 (보드 B만)
+sudo apt install -y mosquitto                               # 시험용 로컬 브로커 (보드 B만, localhost에서만 열림)
+export TEST_MQTT_USERNAME=test TEST_MQTT_PASSWORD=test      # 로컬 브로커용 아무 값 (운영 계정과 분리)
+.venv/bin/python -m collector check-config --config config/examples/format-change.toml \
+    --sample tests/fixtures/format_changed.json --topic test/new-format      # 저장 없이 해석 결과 미리 보기
 .venv/bin/python -m collector run --config config/examples/format-change.toml &   # 로컬 브로커에 붙는 두 번째 수집기
 mosquitto_pub -h localhost -t 'test/new-format' -f tests/fixtures/format_changed.json
 .venv/bin/python -m collector status --config config/examples/format-change.toml --hours 1
+kill %1                                                     # 시험용 수집기 종료
 ```
 
 기대: 설정 파일만 고친 상태에서 새 형식 값이 올바른 공간·항목으로 저장된다. 코드 diff는 없다.
@@ -92,10 +96,12 @@ mosquitto_pub -h localhost -t 'test/new-format' -f tests/fixtures/format_changed
 
 ### SC-003 24시간 커버율 95% + 결측 원인 설명
 
-서비스로 24시간 이상 돌린 뒤:
+서비스로 24시간 이상 돌린 뒤 (장애 시험을 한 시간대는 `--exclude`로 빼거나, 시험이 없는 24시간을 `--from/--to`로 고른다. 시각은 한국 시간):
 
 ```bash
 .venv/bin/python -m collector report --hours 24 --out docs/reports/001-collection-status.md
+.venv/bin/python -m collector report --from 2026-10-22T09:00 --to 2026-10-23T09:00 \
+    --exclude "2026-10-22T14:00~2026-10-22T14:30" --out docs/reports/001-collection-status.md
 ```
 
 기대: 센서·항목별 간격 기준 커버율 95% 이상. 결측 구간마다 추정 원인과 근거가 있다. 장애 시험을 한 시간대는 "시험으로 인한 결측"으로 따로 표시하고, 시험이 없는 연속 24시간 구간으로 판정한다.

@@ -27,6 +27,33 @@ cp .env.example .env            # 값은 팀 단톡방에서 받는다
 claude --add-dir ../docs        # 과제 문서도 읽을 수 있게 Claude Code 실행
 ```
 
+## 수집기 (과제 1)
+
+MQTT 센서 메시지를 받아 보드 안 SQLite(`data/collector.db`)에 저장한다. 설계는 `specs/001-data-collection/`, 실행·시험 순서는 [quickstart.md](specs/001-data-collection/quickstart.md).
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/pytest -q                                  # 단위 시험
+
+set -a; source .env; set +a                          # MQTT 계정 불러오기
+.venv/bin/python -m collector check-config           # 설정 점검
+.venv/bin/python -m collector run                    # 앞에서 실행 (Ctrl+C로 종료)
+sudo deploy/install-service.sh                       # 서비스로 등록 (재부팅 후 자동 시작)
+
+.venv/bin/python -m collector status                 # 지금 잘 쌓이고 있나 (끊긴 항목이 있으면 종료 코드 3)
+.venv/bin/python -m collector report --hours 24      # docs/reports/001-collection-status.md
+.venv/bin/python -m collector export --from 2026-10-21 --to 2026-10-22 --out data/export.csv
+```
+
+| 파일 | 역할 |
+|---|---|
+| `config/collector.toml` | 브로커, 구독 토픽, 메시지 해석 규칙, 센서별 전송 간격 (형식이 바뀌면 여기만 고친다) |
+| `collector/` | `parser.py` 해석, `store.py` 저장, `mqtt_client.py` 접속·재접속, `coverage.py` 커버율·결측 원인, `report.py` 현황·보고서 |
+| `deploy/` | systemd 서비스 템플릿과 설치 스크립트 |
+
+어디서 무엇을 하나: 코드 작성·분석·학습은 맥, 수집기 실행과 Jetson이 필요한 작업(TensorRT, 보드 측정, 상시 서비스)은 보드. 자세한 분담은 `../docs/environment.md`.
+
 과제 진행 순서 (과제 하나씩):
 
 1. `/speckit-specify` — `../docs/assignment.md`의 과제 N 부분을 기준으로 spec 작성

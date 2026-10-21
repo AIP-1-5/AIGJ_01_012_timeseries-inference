@@ -1,0 +1,51 @@
+# 형식 변경 대응 시험용 설정 (contracts/config.md "형식 변경 대응 예시", quickstart.md SC-005).
+# 보드 B의 시험용 로컬 브로커(localhost)에 붙는다. 운영 수집기와 섞이지 않게 client_id와 저장 경로를 따로 쓴다.
+#
+# 가정한 형식 변경: 기존 ChirpStack 형식에서 아래처럼 필드 이름과 위치가 바뀌었다.
+#   deviceInfo.devEui           → device.eui
+#   deviceInfo.deviceProfileName → device.model
+#   deviceInfo.tags.location    → device.tags.room
+#   deviceInfo.tags.spot        → device.tags.position
+#   rxInfo[].nsTime             → (없음, sentAt만 있음)
+#   fCnt                        → seq
+#   deduplicationId             → msgId
+#   object.{co2,temperature,humidity} → measurements.{CO2_ppm,temp_c,rh_pct}
+# 대응: 아래 fields 경로와 metrics.rename만 고쳤다. 코드는 바꾸지 않는다.
+
+[broker]
+host = "localhost"
+port = 1883
+username_env = "TEST_MQTT_USERNAME"
+password_env = "TEST_MQTT_PASSWORD"
+client_id = "team5-b-jaeung-format-test"
+reconnect_min_seconds = 1
+reconnect_max_seconds = 20
+stale_after_minutes = 5
+qos = 1
+clean_session = true
+
+[storage]
+path = "data/format-test.db"
+
+[[sources]]
+name = "new-format"
+topic = "test/new-format"
+format = "json"
+
+  [sources.fields]
+  device_id = "device.eui"
+  device_profile = "device.model"
+  space = "device.tags.room"
+  spot = "device.tags.position"
+  ns_time = "sentAt"
+  fcnt = "seq"
+  dedup_key = "msgId"
+  values = "measurements"
+
+  [sources.metrics]
+  include = ["co2", "temperature", "humidity"]
+  rename = { CO2_ppm = "co2", temp_c = "temperature", rh_pct = "humidity" }
+  units = { co2 = "ppm", temperature = "°C", humidity = "%" }
+
+[intervals]
+default = 1

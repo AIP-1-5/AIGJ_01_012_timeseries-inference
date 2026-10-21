@@ -22,9 +22,13 @@ SUMMARY_INTERVAL_SECONDS = 60
 MAX_CONSECUTIVE_STORE_ERRORS = 10
 
 
+TIMESYNC_DIR = Path("/run/systemd/timesync")
+CLOCK_SYNC_WAIT_SECONDS = 90
+
+
 def clock_synced():
     """systemd-timesyncd가 시계를 맞췄는지. 부팅 직후 'no'면 사건 시각(at)이 틀릴 수 있다."""
-    return "yes" if Path("/run/systemd/timesync/synchronized").exists() else "no"
+    return "yes" if (TIMESYNC_DIR / "synchronized").exists() else "no"
 
 
 def should_reconnect(connected, last_message_at, now, stale_seconds):
@@ -161,14 +165,28 @@ class Collector:
     def stop(self, *_):
         self._stop.set()
 
+    def wait_for_clock_sync(self, timeout=CLOCK_SYNC_WAIT_SECONDS):
+        """부팅 직후 보드 시계는 1970-01-01에서 시작한다(시계 배터리 없음, 2026-10-21 관찰).
+        시계가 맞춰지기 전에 기록하면 사건과 수신 시각이 1970년으로 찍히므로 최대 timeout초 기다린다.
+        timesyncd가 없는 환경(맥 등)에서는 기다리지 않는다. 반환: 기다린 초.
+        """
+        if not TIMESYNC_DIR.exists() or clock_synced() == "yes":
+            return 0
+        log.info("시계 동기화를 기다린다 (최대 %d초)", timeout)
+        waited = 0
+        while waited < timeout and clock_synced() == "no" and not self._stop.wait(1):
+            waited += 1
+        return waited
+
     def run(self):
         broker = self.config.broker
         client = self.build_client()
-        self._event("start", f"v{__version__} host={socket.gethostname()} client_id={broker.client_id} "
-                             f"config={self.config.path} clock_synced={clock_synced()}")
-        log.info("수집 시작: client_id=%s, 저장소=%s", broker.client_id, self.config.storage_path)
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
+        waited = self.wait_for_clock_sync()
+        self._event("start", f"v{__version__} host={socket.gethostname()} client_id={broker.client_id} "
+                             f"config={self.config.path} clock_synced={clock_synced()} clock_wait={waited}s")
+        log.info("수집 시작: client_id=%s, 저장소=%s", broker.client_id, self.config.storage_path)
 
         client.connect_async(broker.host, broker.port, keepalive=broker.keepalive_seconds)
         client.loop_start()

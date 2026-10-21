@@ -120,3 +120,16 @@ def test_config_option_before_or_after_command():
     assert parser.parse_args(["--config", "a.toml", "status"]).config == "a.toml"
     assert parser.parse_args(["status", "--config", "b.toml"]).config == "b.toml"
     assert parser.parse_args(["status"]).config == "config/collector.toml"
+
+
+def test_wait_for_clock_sync(collector, tmp_path, monkeypatch):
+    import collector.mqtt_client as mc
+
+    sync_dir = tmp_path / "timesync"
+    monkeypatch.setattr(mc, "TIMESYNC_DIR", sync_dir)
+    assert collector.wait_for_clock_sync(timeout=3) == 0          # timesyncd가 없는 환경: 기다리지 않음
+    sync_dir.mkdir()
+    collector._stop.wait = lambda seconds: False                    # 실제로 자지 않게
+    assert collector.wait_for_clock_sync(timeout=3) == 3            # 끝까지 안 맞춰지면 timeout 후 진행
+    (sync_dir / "synchronized").touch()
+    assert collector.wait_for_clock_sync(timeout=3) == 0

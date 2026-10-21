@@ -3,3 +3,4 @@ pandas>=2.2
 numpy>=1.26
 matplotlib>=3.8
 holidays>=0.50
+scikit-learn>=1.4        # 과제 5 분류기 (ARM64 휠 있음)

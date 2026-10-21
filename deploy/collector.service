@@ -1,0 +1,22 @@
+# 수집기 systemd 서비스 템플릿. 직접 복사하지 말고 deploy/install-service.sh로 설치한다.
+# @USER@, @REPO@는 설치 스크립트가 채운다.
+
+[Unit]
+Description=MQTT sensor collector (assignment 1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@REPO@
+EnvironmentFile=@REPO@/.env
+ExecStart=@REPO@/.venv/bin/python -m collector --config @REPO@/config/collector.toml run
+Restart=always
+RestartSec=5
+# 설정 오류(종료 코드 2)는 재시작해도 고쳐지지 않으므로 반복하지 않는다
+RestartPreventExitStatus=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

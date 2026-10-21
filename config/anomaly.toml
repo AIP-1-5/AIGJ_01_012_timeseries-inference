@@ -1,0 +1,27 @@
+# 과제 4 이상 탐지 설정 (specs/004-anomaly-detection/plan.md)
+
+[inject]                       # 검증·시험 기간 복사본에 심는 합성 고장
+per_type = 8                   # 종류마다 몇 건
+val_seed = 11                  # 검증 복사본 (임계값 정하기)
+test_seed = 22                 # 시험 복사본 (한 번 평가)
+spike_co2 = [400, 1200]        # 튄 값 크기 (ppm)
+spike_temperature = [4, 8]     # (℃)
+stuck_hours = [1, 4]
+drift_ppm = [200, 500]         # 영점 틀어짐: 6시간 동안 이만큼 올라가고 18시간 유지
+cooling_rise = [3, 5]          # 냉방 정지: 수업 중 2시간 동안 이만큼 올라감
+ventilation_factor = 1.8       # 환기 정지: 사용 중 CO₂ 상승 폭 배수
+
+[model]
+window_minutes = 60            # 12칸
+hidden = 64
+bottleneck = 16
+epochs = 20
+patience = 4
+batch_size = 1024
+learning_rate = 1e-3
+seed = 1
+
+[alarm]
+merge_minutes = 60             # 이 간격 안의 경보는 한 이벤트로
+grace_minutes = 60             # 고장 끝 뒤 이만큼까지 울린 경보는 탐지로 인정
+target_false_per_day = 0.9     # 검증 복사본에서 임계값을 고를 때 헛경보 상한 (확인 기준 하루 1회보다 약간 낮게)

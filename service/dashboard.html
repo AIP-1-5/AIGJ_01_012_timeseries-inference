@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교육장 공기 상태</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #fff; --ink: #1d2330; --muted: #6b7385; --line: #e3e6ec;
+          --ok: #1f8a4c; --warn: #c77700; --bad: #c62f2f; --accent: #2b6cb0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171d; --card: #1d222b; --ink: #e8ebf0; --muted: #98a0b0; --line: #2d3440;
+            --ok: #4cc27c; --warn: #f0a63a; --bad: #ef6464; --accent: #6aa5e8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-bottom: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card h2 { font-size: 16px; margin: 0 0 8px; display: flex; justify-content: space-between; }
+  .big { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  ul { margin: 6px 0 0; padding-left: 18px; }
+  svg { width: 100%; height: 56px; display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>교육장 공기 상태</h1>
+  <span id="meta" class="muted">불러오는 중…</span>
+  <span id="health" class="pill">-</span>
+</header>
+<div id="spaces" class="grid"></div>
+<p class="muted">매분 계산 · 5분 칸 기준 · 예측선은 지금부터 60분 (점선 = 1,000 ppm). 원본: <code>/v1/spaces</code>, 형식: docs/interface.md</p>
+<script>
+const fmt = (v, d = 0) => v == null ? "–" : Number(v).toFixed(d);
+const kst = iso => iso ? new Date(iso).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" }) : "–";
+
+function spark(fc) {
+  if (!fc) return "";
+  const vals = [fc.now, ...fc.points.map(p => p.value)];
+  const lo = Math.min(...vals, 400), hi = Math.max(...vals, 1100);
+  const x = i => (i / 12) * 100, y = v => 52 - ((v - lo) / (hi - lo)) * 48;
+  const path = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 100 56" preserveAspectRatio="none" aria-label="CO2 60분 예측">
+    <line x1="0" x2="100" y1="${y(1000)}" y2="${y(1000)}" stroke="currentColor" class="bad" stroke-dasharray="2 2" stroke-width="0.6"/>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function card(s) {
+  const co2 = s.forecast && s.forecast.co2, t = s.forecast && s.forecast.temperature;
+  const st = s.state || {}, an = s.anomaly || {};
+  const co2cls = co2 ? (co2.now >= 1000 ? "bad" : co2.now >= 800 ? "warn" : "ok") : "muted";
+  const alerts = (s.alerts || []).map(a => `<li class="${a.level === "warning" ? "warn" : "muted"}">${a.message}</li>`).join("");
+  return `<div class="card">
+    <h2>${s.space}<span class="muted">센서 ${s.sensors.total - s.sensors.stale.length}/${s.sensors.total}</span></h2>
+    <div class="row">
+      <div><div class="muted">CO₂ (ppm)</div><div class="big ${co2cls}">${co2 ? fmt(co2.now) : "–"}</div>
+        <div class="muted">60분 뒤 ${co2 ? fmt(co2.points[11].value) : "–"}</div></div>
+      <div><div class="muted">온도 (℃)</div><div class="big">${t ? fmt(t.now, 1) : "–"}</div>
+        <div class="muted">60분 뒤 ${t ? fmt(t.points[11].value, 1) : "–"}</div></div>
+    </div>
+    ${spark(co2)}
+    <div class="row muted">
+      <span>사용 ${st.occupied == null ? "–" : `${st.occupied ? "중" : "안 함"} (${fmt(st.occupied_probability * 100)}%)`}</span>
+      <span>이상 점수 ${fmt(an.score, 2)}${an.threshold ? " / " + fmt(an.threshold, 2) : ""}</span>
+    </div>
+    ${alerts ? `<ul>${alerts}</ul>` : `<div class="ok" style="margin-top:6px">경보 없음</div>`}
+    ${s.forecast_unavailable ? `<div class="muted">예측 없음: ${s.forecast_unavailable}</div>` : ""}
+  </div>`;
+}
+
+async function refresh() {
+  try {
+    const [res, health] = await Promise.all([fetch("/v1/spaces"), fetch("/health")]);
+    const h = await health.json();
+    const el = document.getElementById("health");
+    el.textContent = h.status === "ok" ? "정상" : "멈춤/지연";
+    el.className = "pill " + (h.status === "ok" ? "ok" : "bad");
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById("meta").textContent =
+      `기준 ${kst(data.slot)} KST · 계산 ${kst(data.generated_at)} · 모델 ${(h.models || {}).forecast || "-"}`;
+    document.getElementById("spaces").innerHTML = data.spaces.map(card).join("");
+  } catch (e) {
+    document.getElementById("meta").textContent = "서비스에 연결할 수 없음";
+  }
+}
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

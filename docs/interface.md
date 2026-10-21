@@ -35,6 +35,7 @@ mosquitto_sub -h data.withio.net -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" -t 'aip
 
 | 경로 | 설명 |
 | --- | --- |
+| `GET /` | 사람이 보는 대시보드 화면 (공간별 CO₂·온도, 60분 예측선, 사용 여부, 경보. 30초마다 갱신) |
 | `GET /health` | 서비스 상태. 200 = 마지막 성공 주기가 180초 안, 503 = 멈춤·실패 중 (`last_error` 포함) |
 | `GET /v1/spaces` | 모든 공간 결과 (`spaces`: 공간 객체 목록, `stale`: 결과가 180초보다 오래됨) |
 | `GET /v1/spaces/<slug>` | 한 공간 결과 (§4) |

@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 from collections import Counter
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.enums import CallbackAPIVersion
@@ -19,6 +20,11 @@ log = logging.getLogger("collector")
 
 SUMMARY_INTERVAL_SECONDS = 60
 MAX_CONSECUTIVE_STORE_ERRORS = 10
+
+
+def clock_synced():
+    """systemd-timesyncd가 시계를 맞췄는지. 부팅 직후 'no'면 사건 시각(at)이 틀릴 수 있다."""
+    return "yes" if Path("/run/systemd/timesync/synchronized").exists() else "no"
 
 
 def should_reconnect(connected, last_message_at, now, stale_seconds):
@@ -158,7 +164,8 @@ class Collector:
     def run(self):
         broker = self.config.broker
         client = self.build_client()
-        self._event("start", f"v{__version__} host={socket.gethostname()} client_id={broker.client_id} config={self.config.path}")
+        self._event("start", f"v{__version__} host={socket.gethostname()} client_id={broker.client_id} "
+                             f"config={self.config.path} clock_synced={clock_synced()}")
         log.info("수집 시작: client_id=%s, 저장소=%s", broker.client_id, self.config.storage_path)
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)

@@ -144,7 +144,7 @@ description: "Task list for 과제 1 — 데이터 수집 체계"
 **Independent Test**: 수집 중 전체 내보내기를 돌려도 그 시간대 커버율이 떨어지지 않는다
 
 - [x] T034 [US5] `export` 명령 구현: 읽기 전용 연결, 열 `measured_at, device_id, device_profile, space, spot, metric, value, unit, gw_time, received_at, fcnt`, `--from/--to/--metric/--out`, 출력 경로가 `data/` 밖이면 경고 (`collector/__main__.py`, `collector/store.py`)
-- [ ] T035 **(보드)** [US5] 보드 B에서 SC-007: 수집 중 전체 내보내기 실행, 전후 커버율 비교를 `docs/reports/001-failure-tests.md`에 기록
+- [x] T035 **(보드)** [US5] 보드 B에서 SC-007: 수집 중 전체 내보내기 실행, 전후 커버율 비교를 `docs/reports/001-failure-tests.md`에 기록
 
 ---
 

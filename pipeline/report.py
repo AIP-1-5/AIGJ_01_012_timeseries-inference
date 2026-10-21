@@ -60,15 +60,16 @@ def fault_lines(diagnosis):
 
 
 def response_table(data):
-    lines = ["| 일정 | 종류 | 측정한 날 | 반응한 날 | 반응 시간 중앙값 (25~75%) | 변화 폭 중앙값 |",
-             "|---|---|---:|---:|---|---:|"]
+    lines = ["| 일정 | 종류 | 측정한 날 | 반응한 날 | 반응 시간 중앙값 (25~75%) | 변화 폭 중앙값 (2시간 안) | 변화 폭 중앙값 (90분 안) |",
+             "|---|---|---:|---:|---|---:|---:|"]
     kinds = {"start": "들어옴", "partial": "일부 남음", "end": "모두 나감"}
     for row in data:
         span = (f"{row['median_min']:.0f}분 ({row['p25_min']:.0f}~{row['p75_min']:.0f})"
                 if row["median_min"] is not None else "반응 없음")
         change = f"{row['median_change']} ppm" if row["median_change"] is not None else "-"
+        change_90 = f"{row['median_change_90']} ppm" if row.get("median_change_90") is not None else "-"
         lines.append(f"| {row['time']} {row['label']} | {kinds.get(row['kind'], row['kind'])} | {row['measured']} | "
-                     f"{row['responded']} | {span} | {change} |")
+                     f"{row['responded']} | {span} | {change} | {change_90} |")
     return "\n".join(lines)
 
 
@@ -107,9 +108,9 @@ def auto_observations(diagnosis, baseline_table, settings):
     for space, data in diagnosis["schedule"]["spaces"].items():
         lunch = next((r for r in data["response_matched"] if r["kind"] == "partial"), None)
         end = next((r for r in data["response_matched"] if r["kind"] == "end"), None)
-        if lunch and end and lunch["median_change"] is not None and end["median_change"]:
-            notes.append(f"{space} 점심 감소 폭 {lunch['median_change']} ppm vs 퇴실 감소 폭 {end['median_change']} ppm "
-                         f"(비율 {lunch['median_change'] / end['median_change']:.2f}) → 점심에 남는 인원의 흔적인지 본다")
+        if lunch and end and lunch.get("median_change_90") is not None and end.get("median_change_90"):
+            notes.append(f"{space} 90분 안 감소 폭: 점심 {lunch['median_change_90']} ppm vs 퇴실 {end['median_change_90']} ppm "
+                         f"(비율 {lunch['median_change_90'] / end['median_change_90']:.2f}) → 같은 시간 동안 점심이 덜 내려가면 남은 인원의 흔적")
         no_people = sum(1 for m in data["mismatched"] if m["reason"] == "no_people")
         if no_people:
             notes.append(f"{space}: 일정이 있는데 CO₂가 거의 안 오른 날 {no_people}일 → 달별 표에서 몰린 달(방학, 과정 시작 전)을 찾는다")
@@ -151,7 +152,8 @@ def build(settings, schedule, clean, split, normalization, diagnosis, baseline_t
         "| 공간 값 | 센서들의 중앙값 | 한 대가 고장 나도 크게 흔들리지 않는다 |",
         f"| 짧은 결측 | {settings.max_interp_minutes}분 이하만 선형 보간 | 10분 센서의 메시지 1건 손실까지만 채운다 |",
         "| 보간 값 | 입력에는 쓰되 정답으로는 안 쓴다 | 직선으로 채운 값을 맞히면 성적이 부푼다 |",
-        f"| 값 고정 | 같은 값 {int(next(iter(settings.stuck_minutes.values())))}분 이상 → 고장 의심 | 과제 4의 '값 고정' 고장. 학습·평가 정답에서 뺀다 |",
+        "| 값 고정 | 같은 값이 " + ", ".join(f"{m} {v / 60:g}시간" for m, v in settings.stuck_minutes.items())
+        + " 이상 → 고장 의심 | 과제 4의 '값 고정' 고장. 학습·평가 정답에서 뺀다. 기준은 정상인 빈방의 가장 긴 정체(CO₂ 3.3시간, 온도·습도 약 15시간)보다 길게 잡았다. 60분이면 온도·습도 해상도 때문에 정상인 밤이 고장으로 잡힌다 |",
         "",
         "## 3. 결측률과 제거 건수",
         "",

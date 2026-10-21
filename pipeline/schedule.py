@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 import holidays as holiday_lib
 import pandas as pd
 
+COMPARE_MINUTES = 90   # 점심(11:30~13:00)과 같은 길이로 맞춰 변화 폭을 비교한다
+
 
 def holiday_dates(country, years):
     return set(holiday_lib.country_holidays(country, years=sorted(years)).keys())
@@ -40,27 +42,31 @@ def response_times(series, events, schedule, interval_minutes=5):
     기준 = 변화 직전 baseline_minutes 동안의 평균 (칸 시각 t−30분 초과 ~ t 이하 → t 이전 측정값).
     start는 기준보다 threshold 이상 오른 첫 칸, partial·end는 threshold 이상 내린 첫 칸.
     window 안에 없으면 반응 없음(NaN). 변화 폭 = 창 안의 최댓값−기준 (start) 또는 기준−최솟값 (partial·end).
+    change_90 = 같은 변화 폭을 처음 90분 안에서만. 점심은 90분 뒤 사람이 돌아오므로 퇴실과 비교할 때는 이것을 쓴다.
     """
     series = series.dropna().sort_index()
     base_window = pd.Timedelta(minutes=schedule.baseline_minutes)
     window = pd.Timedelta(minutes=schedule.window_minutes)
+    compare = pd.Timedelta(minutes=COMPARE_MINUTES)
     min_before = max(1, schedule.baseline_minutes // interval_minutes // 2)   # 기준 칸의 절반 이상
     rows = []
     for event in events.itertuples(index=False):
         before = series[(series.index > event.time - base_window) & (series.index <= event.time)]
         after = series[(series.index > event.time) & (series.index <= event.time + window)]
         row = {"time": event.time, "day": event.day, "kind": event.kind, "label": event.label,
-               "baseline": float("nan"), "response_min": float("nan"), "change": float("nan")}
+               "baseline": float("nan"), "response_min": float("nan"), "change": float("nan"),
+               "change_90": float("nan")}
         if len(before) >= min_before and len(after) >= 2:
             baseline = before.mean()
             delta = (after - baseline) if event.kind == "start" else (baseline - after)
             crossed = delta[delta >= schedule.threshold_ppm]
             row["baseline"] = float(baseline)
             row["change"] = float(delta.max())
+            row["change_90"] = float(delta[delta.index <= event.time + compare].max())
             if not crossed.empty:
                 row["response_min"] = (crossed.index[0] - event.time).total_seconds() / 60
         rows.append(row)
-    return pd.DataFrame(rows, columns=["time", "day", "kind", "label", "baseline", "response_min", "change"])
+    return pd.DataFrame(rows, columns=["time", "day", "kind", "label", "baseline", "response_min", "change", "change_90"])
 
 
 def day_rises(series, days, space_schedule, schedule, tz, interval_minutes=5):

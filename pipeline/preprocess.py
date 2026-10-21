@@ -113,17 +113,41 @@ def clean_metric(raw, metric, settings):
     frame["time"] = bin_label(frame["time"], settings.interval_minutes)
     sensor_bins = (frame.groupby(["space", "device_id", "time"], sort=True)
                    .agg(value=("value", "mean"), n_raw=("value", "size"), stuck=("stuck", "any")).reset_index())
-    good = sensor_bins[~sensor_bins["stuck"]]
-    bad = sensor_bins[sensor_bins["stuck"]]
-    agg = {"value": ("value", "median"), "n_raw": ("n_raw", "sum"), "n_sensors": ("device_id", "size")}
-    ok = good.groupby(["space", "time"]).agg(**agg)
-    ok["fault"] = ""
-    stuck_only = bad.groupby(["space", "time"]).agg(**agg)
-    stuck_only = stuck_only[~stuck_only.index.isin(ok.index)]
-    stuck_only["fault"] = FAULT_STUCK
-    slots = pd.concat([ok, stuck_only]).sort_index().reset_index()
+    slots = space_slots(sensor_bins, settings)
     slots["metric"] = metric
     return slots, stats, devices
+
+
+def space_slots(sensor_bins, settings):
+    """센서별 5분 칸 → 공간 값 (중앙값).
+
+    센서마다 보내는 간격(1·2·10분)이 달라서, 그대로 중앙값을 내면 10분 센서가 들어온 칸과 안 들어온 칸이
+    번갈아 "4대 중앙값 / 3대 중앙값"이 되어 값이 들쭉날쭉하다. 그래서 각 센서의 마지막 값을
+    sensor_hold_minutes까지 다음 칸에 이어 쓴다(과거 값만 쓰므로 미래가 섞이지 않는다. 실시간 서비스와 같은 방식).
+    새로 들어온 값이 하나도 없는 칸은 결측으로 남긴다(이어 쓴 값만으로는 칸을 만들지 않는다).
+    값 고정 센서는 빼고, 새 값이 고정 센서에서만 왔으면 그 값으로 칸을 만들고 fault=stuck.
+    """
+    hold = settings.sensor_hold_minutes // settings.interval_minutes
+    parts = []
+    for space, group in sensor_bins.groupby("space", sort=True):
+        grid = pd.date_range(group["time"].min(), group["time"].max(), freq=f"{settings.interval_minutes}min")
+        wide = {name: group.pivot(index="time", columns="device_id", values=name).reindex(grid)
+                for name in ("value", "n_raw", "stuck")}
+        fresh = wide["value"].notna()
+        value = wide["value"].ffill(limit=hold)
+        stuck = wide["stuck"].astype(float).ffill(limit=hold).fillna(0) > 0
+        good = value.where(~stuck)
+        any_fresh = fresh.any(axis=1)
+        fresh_good = (fresh & ~stuck).any(axis=1)
+        frame = pd.DataFrame({
+            "value": good.median(axis=1).where(fresh_good, value.where(stuck).median(axis=1)),
+            "n_raw": wide["n_raw"].fillna(0).sum(axis=1).astype(int),
+            "n_sensors": good.notna().sum(axis=1).where(fresh_good, stuck.sum(axis=1)).astype(int),
+            "fault": np.where(fresh_good, "", FAULT_STUCK),
+        }, index=grid)[any_fresh]
+        frame.index.name = "time"
+        parts.append(frame.reset_index().assign(space=space))
+    return pd.concat(parts, ignore_index=True)[["space", "time", "value", "n_raw", "n_sensors", "fault"]]
 
 
 def fill_short_gaps(values, fault, max_slots):

@@ -93,3 +93,13 @@ def test_low_coverage_day_not_judged(schedule):
     rises = day_rises(series, days, schedule.for_space("실습실"), schedule, TZ)
     assert rises["coverage"].iloc[0] < 0.5
     assert mismatched_days(rises, schedule).empty
+
+
+def test_change_within_90_minutes(schedule):
+    # 점심 뒤 13:10에 사람이 돌아와도 90분 안 감소 폭은 점심 동안만 본다
+    days = [date(2026, 3, 9)]
+    series = lab_co2(days, delay_min=10)
+    events = event_times(days, schedule.for_space("실습실"), schedule, TZ)
+    result = response_times(series, events, schedule).set_index("kind")
+    assert result.loc["partial", "change_90"] == pytest.approx(250)
+    assert result.loc["end", "change_90"] == pytest.approx(450)

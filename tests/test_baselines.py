@@ -38,15 +38,15 @@ def test_baseline_predictions_on_ramp(settings):
     clean = ramp_clean()
     split = manual_split("2026-03-11", "2026-03-12")
     points = bl.build_eval_points(clean, split, settings)
-    # 시험 하루(288칸) 중 마지막 60분은 정답이 시험 기간 밖이라 빠진다 → 288 − 12 = 276
-    assert len(points) == 276
+    # 시험 하루(288칸) 중 마지막 h분은 정답이 시험 기간 밖이라 그 h에서 빠진다
+    assert len(points) == 287 and points["h5"].sum() == 287 and points["h60"].sum() == 276
     table = bl.mae_table(bl.predict(clean, points, settings)).set_index(["space", "baseline", "horizon_min"])
     for h in (5, 15, 30, 60):
         k = h // 5
         assert table.loc[("실습실", "persistence", h), "mae"] == pytest.approx(k)
         assert table.loc[("실습실", "mean_1h", h), "mae"] == pytest.approx(k + 5.5)      # 12칸 평균은 5.5칸 뒤처짐
         assert table.loc[("실습실", "yesterday", h), "mae"] == pytest.approx(288)        # 하루 = 288칸
-        assert table.loc[("전체", "persistence", h), "n"] == 276
+        assert table.loc[("전체", "persistence", h), "n"] == 288 - k
     best = bl.strongest(bl.mae_table(bl.predict(clean, points, settings)))
     assert set(best["baseline"]) == {"persistence"}
 
@@ -54,7 +54,6 @@ def test_baseline_predictions_on_ramp(settings):
 def test_eval_point_rules(settings):
     clean = ramp_clean()
     split = manual_split("2026-03-11", "2026-03-12")
-    base = set(bl.build_eval_points(clean, split, settings)["time"])
     t_interp = pd.Timestamp("2026-03-11T03:00Z")
     t_fault = pd.Timestamp("2026-03-11T06:00Z")
     t_missing_yesterday = pd.Timestamp("2026-03-10T09:00Z")
@@ -65,17 +64,22 @@ def test_eval_point_rules(settings):
     dirty.loc[t_missing_yesterday, "value"] = np.nan                  # 하루 전 값이 비면 어제 기준선을 못 만듦
     window_holes = pd.date_range(t_window - pd.Timedelta(minutes=55), periods=4, freq="5min")
     dirty.loc[window_holes, "value"] = np.nan                          # 1시간 창 12칸 중 4칸 빔 → 8칸 < 9칸
-    dirty = dirty.reset_index()
-    points = set(bl.build_eval_points(dirty, split, settings)["time"])
-    removed = base - points
+    points = bl.build_eval_points(dirty.reset_index(), split, settings).set_index("time")
+
+    def usable(t, h):
+        return t in points.index and bool(points.loc[t, f"h{h}"])
+
     step = pd.Timedelta(minutes=5)
-    for h in (0, 5, 15, 30, 60):                                      # 그 칸을 정답(t+h)으로 쓰는 t는 모두 빠진다
-        assert t_interp - pd.Timedelta(minutes=h) in removed
-        assert t_fault - pd.Timedelta(minutes=h) in removed
-    for h in (5, 15, 30, 60):                                         # y(t+h−24h)가 그 칸인 t
-        assert t_missing_yesterday + pd.Timedelta(days=1) - pd.Timedelta(minutes=h) in removed
-    assert t_window in removed
-    assert t_window + 4 * step not in removed                         # 창이 구멍을 벗어나면 다시 평가
+    for bad in (t_interp, t_fault):
+        assert bad not in points.index                                # 현재값 y(t)로 못 씀
+        for h in (5, 15, 30, 60):                                     # 그 칸을 정답(t+h)으로 쓰는 h만 빠진다
+            assert not usable(bad - pd.Timedelta(minutes=h), h)
+            other = 5 if h != 5 else 15
+            assert usable(bad - pd.Timedelta(minutes=h), other)
+    for h in (5, 15, 30, 60):                                         # y(t+h−24h)가 그 칸인 (t, h)
+        assert not usable(t_missing_yesterday + pd.Timedelta(days=1) - pd.Timedelta(minutes=h), h)
+    assert t_window not in points.index
+    assert usable(t_window + 4 * step, 5)                             # 창이 구멍을 벗어나면 다시 평가
 
 
 def test_class_hours_flag(settings):
@@ -126,3 +130,15 @@ def test_existing_points_are_reused(tmp_path, settings):
     total = mae[(mae["space"] == "전체") & (mae["baseline"] == "persistence") & (mae["horizon_min"] == 5)]["n"].sum()
     assert total == len(fewer)
     assert bl.load_points(tmp_path / "artifacts" / "eval_points.csv").equals(fewer.reset_index(drop=True))
+
+
+def test_ten_minute_sensor_gets_only_even_horizons(settings):
+    # 회의실 10분 센서: 칸 하나 걸러 보간 → 5·15분 뒤는 관측 정답이 없고 30·60분만 평가
+    clean = ramp_clean().assign(space="회의실")
+    odd = (clean["time"].dt.minute % 10) == 5
+    clean.loc[odd, "interpolated"] = True
+    points = bl.build_eval_points(clean, manual_split("2026-03-11", "2026-03-12"), settings)
+    assert len(points) > 0
+    assert not points["h5"].any() and not points["h15"].any()
+    assert points["h30"].all() or points["h30"].sum() > 0.9 * len(points)
+    assert points["h60"].sum() > 0

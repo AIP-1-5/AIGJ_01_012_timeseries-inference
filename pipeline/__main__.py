@@ -139,7 +139,7 @@ def main(argv=None):
     except SettingsError as exc:
         print(f"설정 오류: {exc}", file=sys.stderr)
         return EXIT_CONFIG
-    except (InfluxError, FileNotFoundError) as exc:
+    except (InfluxError, FileNotFoundError, ValueError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         return EXIT_ERROR
 

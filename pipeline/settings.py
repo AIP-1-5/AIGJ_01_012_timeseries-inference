@@ -26,12 +26,6 @@ class SpaceSpec:
     metrics: dict                       # 항목 → "all" 또는 센서 ID 목록
     exclude_devices: list = field(default_factory=list)
 
-    def uses(self, metric, device_id):
-        rule = self.metrics.get(metric)
-        if rule is None or device_id in self.exclude_devices:
-            return False
-        return rule == "all" or device_id in rule
-
 
 @dataclass
 class Settings:

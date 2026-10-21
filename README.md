@@ -7,6 +7,8 @@
 | 경로 | 내용 |
 |---|---|
 | `docs/reports/` | 과제별 결과 보고 |
+| `collector/` | 과제 1 수집기 |
+| `pipeline/` | 과제 2 이후 분석 파이프라인 |
 | `CLAUDE.md` | Claude Code 작업 규칙, 장비 정보 |
 | `.specify/memory/constitution.md` | Spec Kit 원칙 (모든 과제가 지킬 규칙) |
 | `.claude/skills/` | Spec Kit 명령 (`/speckit-*`) |
@@ -53,6 +55,31 @@ sudo deploy/install-service.sh                       # 서비스로 등록 (재�
 | `config/collector.toml` | 브로커, 구독 토픽, 메시지 해석 규칙, 센서별 전송 간격 (형식이 바뀌면 여기만 고친다) |
 | `collector/` | `parser.py` 해석, `store.py` 저장, `mqtt_client.py` 접속·재접속, `coverage.py` 커버율·결측 원인, `report.py` 현황·보고서 |
 | `deploy/` | systemd 서비스 템플릿과 설치 스크립트 |
+
+## 데이터 진단·기준선 (과제 2)
+
+교육장 InfluxDB의 과거 데이터를 보드 B에서 내려받아 정제하고, 기간을 나누고, 기준선 3종을 평가한다. 설계는 `specs/002-data-baseline/`, 실행 순서는 [quickstart.md](specs/002-data-baseline/quickstart.md).
+
+```bash
+# 보드 B: 내려받기는 표준 라이브러리만 쓴다. check-time만 pandas가 필요하다
+./pipeline.sh export-influx --from 2025-08      # data/raw/influx/<항목>/<YYYY-MM>.csv.gz
+./pipeline.sh check-time                        # InfluxDB 시각 vs 수집기 시각
+
+# 맥: 분석
+.venv/bin/pip install -r requirements-analysis.txt
+./pipeline.sh preprocess    # 정제·5분 칸·공간 중앙값·보간·고장 표시
+./pipeline.sh split         # 기간 분할(artifacts/split.json 고정), 정규화 값(학습 기간만)
+./pipeline.sh diagnose      # 결측률, 하루 패턴, 일정 반응, 어긋난 날 → docs/reports/figures/002-*.png
+./pipeline.sh baselines     # 평가 시점 고정(artifacts/eval_points.csv), 기준선 MAE → docs/reports/002-baselines.md
+./pipeline.sh report        # 진단서 초안 docs/reports/002-diagnosis.md (있으면 덮어쓰지 않음)
+```
+
+| 파일 | 역할 |
+|---|---|
+| `config/preprocess.toml` | 허용 범위, 칸 간격, 보간·고장 기준, 공간별 센서, 분할, 평가 설정 (과제 3~8 공용) |
+| `config/schedule.toml` | 실습실 추정 일정과 반응·어긋난 날 판정 기준 |
+| `pipeline/` | `influx.py` 내려받기, `preprocess.py` 정제★, `split.py` 분할·정규화★, `baselines.py` 기준선·평가 시점★, `schedule.py`·`diagnose.py`·`report.py` 진단 (★ 이후 과제가 그대로 쓴다) |
+| `artifacts/` | 분할·정규화 값·평가 시점. 이후 과제가 공유하는 약속이라 커밋한다 |
 
 어디서 무엇을 하나: 코드 작성·분석·학습은 맥, 수집기 실행과 Jetson이 필요한 작업(TensorRT, 보드 측정, 상시 서비스)은 보드. 자세한 분담은 `../docs/environment.md`.
 

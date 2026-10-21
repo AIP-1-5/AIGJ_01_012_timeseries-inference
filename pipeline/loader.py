@@ -27,9 +27,14 @@ def read_raw_files(files):
     files = list(files)
     if not files:
         return normalize_raw(pd.DataFrame(columns=RAW_COLUMNS))
-    parts = [pd.read_csv(f, dtype={"device_id": str, "space": str, "spot": str, "metric": str}, keep_default_na=False,
-                         na_values={"value": [""]}) for f in files]
-    return normalize_raw(pd.concat(parts, ignore_index=True))
+    # 파일마다 category로 바꾼 뒤 합친다 (1년치 글자 열을 한꺼번에 들고 있지 않게)
+    parts = [normalize_raw(pd.read_csv(f, dtype={"device_id": str, "space": str, "spot": str, "metric": str},
+                                       keep_default_na=False, na_values={"value": [""]})) for f in files]
+    for column in CATEGORY_COLUMNS:
+        categories = sorted(set().union(*(part[column].cat.categories for part in parts)))
+        for part in parts:
+            part[column] = part[column].cat.set_categories(categories)
+    return pd.concat(parts, ignore_index=True)
 
 
 def load_metric(raw_dir, metric):

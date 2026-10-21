@@ -22,15 +22,23 @@
 
 ## 장비와 역할
 
-| | 보드 A | 보드 B | 맥 |
-|---|---|---|---|
-| 역할 | 운영: 수집기, 제출 서비스(24시간) | 실험: 학습, 변환, 측정 | 코드 작성, 가벼운 분석·학습 |
-| 접속 | `ssh board-a` (Tailscale) | `ssh board-b` (Tailscale) | — |
-| 규칙 | 실험·재부팅 금지, pull로 배포만 | 무거운 작업 전 팀에 알림 | — |
+전체 환경 정보(보드 주소, 계정, 네트워크, 하지 말 것)는 팀 문서 저장소의 `../docs/environment.md`에 있고 아래에서 불러온다.
 
-- Jetson Orin Nano Super 8GB(CPU·GPU 메모리 공유), JetPack 7.2.1, Ubuntu 24.04, 전원 모드 MAXN SUPER.
+@../docs/environment.md
+
+요약:
+
+| | 보드 A (`team5-a`) | 보드 B (`team5-b`) | 맥 |
+|---|---|---|---|
+| 역할 | 운영: 수집기, 제출 서비스(24시간) | 실험: 학습, 변환, 측정 | 하드웨어가 필요 없는 작업 |
+| 접속 | `ssh board-a` (Tailscale) | `ssh board-b` (Tailscale) | — |
+| 규칙 | 실험·재부팅·코드 수정 금지, pull로 배포만 | 무거운 작업 전 팀에 알림 | — |
+
+- Jetson Orin Nano Super 8GB(CPU·GPU 메모리 공유), JetPack 7.2.1(Jetson Linux r39.2.1), Ubuntu 24.04, ARM64, 전원 모드 MAXN SUPER.
+- 패키지는 계정별 가상환경(`.venv`)에 설치하고, 설치 전 ARM64·JetPack/CUDA 호환성을 확인한다.
+- 메모리를 크게 쓰는 작업 전에 `free -h`로 남은 메모리를 확인한다.
 - 공용 큰 파일(데이터, DB, 모델 파일)은 보드의 `/srv/team5`. 개인 작업은 자기 계정·자기 폴더에서만 한다.
-- InfluxDB는 교육장 내부망 주소라 교육장 네트워크에 있는 보드에서만 접속된다.
+- 보드 B: 인터넷·MQTT는 와이파이, InfluxDB(`10.116.x.x`)는 유선으로 접속된다(유선에 경로 추가, 2026-10-20). InfluxDB 용도는 아직 미정이다.
 
 ## 하지 말 것
 

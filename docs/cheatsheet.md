@@ -1,4 +1,4 @@
-# 수집기 명령어 모음
+# 명령어 모음 (수집기·분석)
 
 보드에서 쓰는 명령을 상황별로 모았다. 모두 저장소 폴더에서 실행한다.
 
@@ -76,3 +76,19 @@ sudo systemctl restart collector-$USER
 | `nano: command not found` | `sudo apt install -y nano` (apt가 권해도 `autoremove`는 하지 않는다) |
 | 브로커에 안 붙음 | `nc -zv -w 5 data.withio.net 1883`, 차단 규칙이 남아 있는지 (위 iptables 확인) |
 | `git pull`이 10.250.250.10에서 막힘 | 유선의 DNS를 쓰고 있다. `sudo nmcli connection modify "Wired connection 1" ipv4.ignore-auto-dns yes ipv4.never-default yes` 후 `sudo nmcli connection up "Wired connection 1"` |
+
+## 과제 2: 데이터 진단·기준선
+
+`./pipeline.sh <명령>`은 `.env`를 불러온 뒤 `.venv/bin/python -m pipeline <명령>`을 실행하는 줄임이다. 순서는 `specs/002-data-baseline/quickstart.md`.
+
+| 하고 싶은 것 | 어디서 | 명령 |
+|---|---|---|
+| InfluxDB 접속 확인 | 보드 B | `curl -sI --max-time 5 http://10.116.64.13:8086/ping \| head -1` → `204 No Content` |
+| 과거 데이터 내려받기 (끊기면 같은 명령 다시) | 보드 B (tmux 안) | `./pipeline.sh export-influx --from 2025-08` |
+| 한 항목·한 달만 다시 받기 | 보드 B | `./pipeline.sh export-influx --from 2026-03 --to 2026-03 --metric co2 --overwrite` |
+| InfluxDB 시각 확인 (pandas 필요) | 보드 B | `.venv/bin/pip install pandas && ./pipeline.sh check-time` |
+| 맥으로 가져오기 | 맥 | `mkdir -p data/raw && scp -r board-b:~/work/AIGJ_01_012_timeseries-inference/data/raw/influx data/raw/` |
+| 정제 → 분할 → 진단 → 기준선 → 진단서 | 맥 | `./pipeline.sh preprocess && ./pipeline.sh split && ./pipeline.sh diagnose && ./pipeline.sh baselines && ./pipeline.sh report` |
+| 분할을 다시 정하기 (이유를 진단서에 적는다) | 맥 | `./pipeline.sh split --force` |
+| 평가 시점을 다시 만들기 (이유를 적는다) | 맥 | `./pipeline.sh baselines --rebuild-points` |
+| InfluxDB 화면을 맥에서 보기 | 맥 | `ssh -L 8086:10.116.64.13:8086 board-b` 켜 두고 브라우저 `http://localhost:8086` (화면 로그인은 토큰이 아니라 계정이 필요) |

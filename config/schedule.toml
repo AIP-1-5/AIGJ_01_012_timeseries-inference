@@ -1,0 +1,25 @@
+# 공간 사용 일정 (specs/002-data-baseline/data-model.md)
+# 실제 시간표가 아니라 사용자가 알려 준 추정이다. 진단의 "어긋난 날" 목록이 이 추정의 한계를 보여 준다.
+source = "사용자 제공 추정 일정 (2026-10-21)"
+holidays = "KR"            # 주말과 대한민국 공휴일은 일정 없음
+
+[response]                 # 일정 변화 뒤 CO₂ 반응 시간 재기 (research.md R11)
+baseline_minutes = 30      # 변화 직전 이 시간의 평균을 기준으로
+threshold_ppm = 30         # 기준에서 이만큼 벗어나면 "반응"
+window_minutes = 120       # 이 안에 벗어나지 않으면 "반응 없음"
+
+[mismatch]                 # 일정과 어긋난 날 찾기
+morning_baseline = ["08:00", "09:00"]
+active_hours = ["09:00", "18:00"]
+min_rise_ppm = 100         # 일정 있는 날인데 이보다 덜 오르면 "사람 없었던 날" 후보, 없는 날인데 이 이상 오르면 "일정 없이 쓴 날" 후보
+min_coverage = 0.5         # 그날 활동 시간 칸의 이 비율 이상 값이 있어야 판정
+
+[[spaces]]
+space = "실습실"
+weekdays = ["mon", "tue", "wed", "thu", "fri"]
+events = [
+  { time = "09:00", kind = "start", label = "오전 실습 시작" },
+  { time = "11:30", kind = "partial", label = "점심 시작 (1~3명 남을 수 있음)" },
+  { time = "13:00", kind = "start", label = "오후 실습 시작" },
+  { time = "18:00", kind = "end", label = "퇴실" },
+]

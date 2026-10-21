@@ -100,5 +100,5 @@ MQTT `alerts` 메시지에는 위 필드에 `space`, `slug`, `time`, `status`가
 ## 6. 쓰는 쪽이 알아야 할 것
 
 - **전처리**: 학습(과제 2~5)과 같은 함수(`pipeline/preprocess.py`, `forecast/dataset.py`, `anomaly/model.py`, `state/features.py`)와 학습 기간 정규화 값(`normalization.json`)을 쓴다. 다르면 같은 공기에서도 입력 분포가 달라져 예측이 조용히 틀어진다(§ 과제 8 보고서).
-- **모델 버전**: `/health`의 `models`와 공간 객체의 `slot`으로 어떤 모델이 언제 데이터로 계산했는지 확인한다. 모델 파일 목록과 해시는 보드 A의 `data/models/manifest.json`에 있다.
+- **모델 버전**: `/health`와 결과 최상위의 `models`(`forecast` 실행 이름, `anomaly`·`state` 있음 여부, 묶음 만든 시각)와 공간 객체의 `slot`으로 어떤 모델이 언제 데이터로 계산했는지 확인한다. 모델 파일 목록과 해시는 보드 A의 `data/models/manifest.json`에 있다.
 - **한계**: 예측은 과거 1년(2025-09 ~ 2026-10) 교육장 데이터로 학습했다. 공간 배치나 센서가 바뀌면 다시 학습해야 한다. 회의실 CO₂ 센서는 10분 간격이라 회의실 값은 최대 10분 늦을 수 있다.

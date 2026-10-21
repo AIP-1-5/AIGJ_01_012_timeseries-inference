@@ -21,7 +21,8 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def export(root, out_dir):
+def export(root, out_dir, run=None):
+    """run을 주면 select 전이라도 그 실행으로 묶는다 (중간 배포용). 오토인코더·분류기는 있으면 넣는다."""
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest = {"created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "code_commit": git_commit(root), "files": {}}
@@ -30,7 +31,7 @@ def export(root, out_dir):
     from forecast.train import load_model
 
     fs = load_forecast_settings(root / "config" / "forecast.toml")
-    chosen = json.loads(fs.selection_path.read_text(encoding="utf-8"))["chosen"]
+    chosen = run or json.loads(fs.selection_path.read_text(encoding="utf-8"))["chosen"]
     model, meta = load_model(fs.runs_dir / chosen)
     sample = (torch.zeros(1, meta["lookback_steps"], meta["n_past"]), torch.zeros(1, 12, meta["n_future"]),
               torch.zeros(1, meta["n_spaces"]))
@@ -39,24 +40,28 @@ def export(root, out_dir):
                       opset_version=17, dynamo=False)
     (out_dir / "forecast.json").write_text(json.dumps({**meta, "run_id": chosen}, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    for stale in ("autoencoder.onnx", "anomaly.json", "state.pkl"):          # 이전 묶음의 남은 파일이 섞이지 않게
+        (out_dir / stale).unlink(missing_ok=True)
     anomaly_dir = root / "data" / "anomaly"
-    checkpoint = torch.load(anomaly_dir / "autoencoder.pt", map_location="cpu", weights_only=False)
-    from anomaly.model import AutoEncoder
+    if (anomaly_dir / "autoencoder.pt").exists():
+        checkpoint = torch.load(anomaly_dir / "autoencoder.pt", map_location="cpu", weights_only=False)
+        from anomaly.model import AutoEncoder
 
-    ae = AutoEncoder(checkpoint["window"], checkpoint["n_cond"], checkpoint["hidden"], checkpoint["bottleneck"])
-    ae.load_state_dict(checkpoint["state_dict"])
-    ae.eval()
-    torch.onnx.export(ae, (torch.zeros(1, checkpoint["window"], 6), torch.zeros(1, checkpoint["n_cond"])),
-                      out_dir / "autoencoder.onnx", input_names=["x", "cond"], output_names=["recon"],
-                      dynamic_axes={n: {0: "batch"} for n in ("x", "cond", "recon")}, opset_version=17, dynamo=False)
-    threshold = json.loads((anomaly_dir / "threshold.json").read_text(encoding="utf-8"))
-    rules = json.loads((anomaly_dir / "rules.json").read_text(encoding="utf-8"))
-    (out_dir / "anomaly.json").write_text(json.dumps({
-        "window": checkpoint["window"], "n_cond": checkpoint["n_cond"], "spaces": checkpoint["spaces"],
-        "threshold": threshold["threshold"], "threshold_decided_at": threshold["decided_at"], "rules": rules,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+        ae = AutoEncoder(checkpoint["window"], checkpoint["n_cond"], checkpoint["hidden"], checkpoint["bottleneck"])
+        ae.load_state_dict(checkpoint["state_dict"])
+        ae.eval()
+        torch.onnx.export(ae, (torch.zeros(1, checkpoint["window"], 6), torch.zeros(1, checkpoint["n_cond"])),
+                          out_dir / "autoencoder.onnx", input_names=["x", "cond"], output_names=["recon"],
+                          dynamic_axes={n: {0: "batch"} for n in ("x", "cond", "recon")}, opset_version=17, dynamo=False)
+        threshold = json.loads((anomaly_dir / "threshold.json").read_text(encoding="utf-8"))
+        rules = json.loads((anomaly_dir / "rules.json").read_text(encoding="utf-8"))
+        (out_dir / "anomaly.json").write_text(json.dumps({
+            "window": checkpoint["window"], "n_cond": checkpoint["n_cond"], "spaces": checkpoint["spaces"],
+            "threshold": threshold["threshold"], "threshold_decided_at": threshold["decided_at"], "rules": rules,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    shutil.copy(root / "data" / "state" / "models.pkl", out_dir / "state.pkl")
+    if (root / "data" / "state" / "models.pkl").exists():
+        shutil.copy(root / "data" / "state" / "models.pkl", out_dir / "state.pkl")
     shutil.copy(root / "artifacts" / "normalization.json", out_dir / "normalization.json")
     for path in sorted(out_dir.iterdir()):
         if path.name != "manifest.json":

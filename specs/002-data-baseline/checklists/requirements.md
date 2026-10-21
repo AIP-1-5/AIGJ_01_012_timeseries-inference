@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,6 +31,6 @@
 
 ## Notes
 
-- FR-010의 일정 정보 출처가 미정이다(NEEDS CLARIFICATION 1건). 실데이터 기간의 수업 시간표·회의실 예약이 없으면 "일정–CO₂ 반응" 분석과 과제 3의 일정 입력, 과제 5의 정답 만들기가 모두 막힌다. 사용자 답을 받은 뒤 plan으로 간다.
+- FR-010 일정 출처: 사용자 답변(2026-10-21)으로 해결. 실습실은 사용자가 알려준 일과로 만든 추정 일정, 회의실·사무실은 일정 분석에서 제외. 어긋난 날 찾기로 추정의 한계를 드러낸다.
 - InfluxDB는 데이터 원천(과제가 준 자료)이므로 spec에 남겼다. 저장 형식, 언어, 라이브러리는 plan에서 정한다.
 - 과제 2 확인 기준 3개를 원문 그대로 "완료 조건"에 넣고 SC-001~SC-003에 대응시켰다.

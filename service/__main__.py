@@ -249,6 +249,51 @@ def run_one(engine, state, gate, publisher, cycles_path, now=None):
     return result
 
 
+class ModelWatcher:
+    """manifest.json이 바뀌고 파일 해시가 모두 맞으면 새 모델을 불러와 바꿔 끼운다 (서비스를 멈추지 않는 모델 교체)."""
+
+    def __init__(self, engine):
+        self.engine = engine
+        self.path = engine.models.dir / "manifest.json"
+        self.seen = self.stamp()
+
+    def stamp(self):
+        try:
+            return self.path.stat().st_mtime_ns
+        except FileNotFoundError:
+            return None
+
+    def check(self):
+        from service.engine import Models
+        from service.export import sha256
+
+        stamp = self.stamp()
+        if stamp is None or stamp == self.seen:
+            return False
+        try:
+            manifest = json.loads(self.path.read_text(encoding="utf-8"))
+            bad = [n for n, h in manifest["files"].items() if sha256(self.path.parent / n) != h]
+        except (OSError, ValueError, KeyError) as exc:          # 복사 중이면 다음 주기에 다시
+            log.info("models changing (%s), retry next cycle", exc)
+            return False
+        if bad:
+            log.info("models changing (%s not matching), retry next cycle", ", ".join(bad))
+            return False
+        try:
+            models = Models(self.path.parent)
+        except Exception:                                      # noqa: BLE001 — 새 모델이 깨졌으면 기존 모델로 계속
+            log.exception("new models failed to load, keeping %s", self.engine.models.summary())
+            self.seen = stamp
+            return False
+        old = self.engine.models.summary()
+        self.engine.models = models
+        self.engine.pending.clear()
+        self.engine.scored.clear()
+        self.seen = stamp
+        log.info("models reloaded: %s -> %s", old, models.summary())
+        return True
+
+
 def cmd_run(root, cfg, args):
     engine, collector_cfg = build_engine(root, cfg)
     state = State()
@@ -269,8 +314,10 @@ def cmd_run(root, cfg, args):
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     cycles_path = root / "data" / "service" / "cycles.csv"
+    watcher = ModelWatcher(engine)
     while not stop.is_set():
         began = time.time()
+        watcher.check()
         result = run_one(engine, state, gate, publisher, cycles_path)
         if result:
             log.info("cycle ok %.0f ms, rows=%s, alerts=%d", result["cycle_ms"], result["raw_rows"],
@@ -349,7 +396,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m service")
     parser.add_argument("--config", default=str(ROOT / "config" / "service.toml"))
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("export")
+    p_exp = sub.add_parser("export")
+    p_exp.add_argument("--run", help="select 전 중간 배포용 실행 이름 (예: linear-full-L120-s1)")
     sub.add_parser("once")
     p_run = sub.add_parser("run")
     p_run.add_argument("--port", type=int)
@@ -365,7 +413,7 @@ def main(argv=None):
     if args.cmd == "export":
         from service.export import export
 
-        manifest = export(root, root / cfg["models"]["dir"])
+        manifest = export(root, root / cfg["models"]["dir"], run=args.run)
         print(json.dumps(manifest, ensure_ascii=False, indent=2))
         return 0
     if args.cmd == "once":

@@ -255,3 +255,35 @@ def test_self_check_scores_forecast_after_60_minutes(root, engine):
     check = later["spaces"]["lab"]["monitor"]["co2"]
     # 0 초기화 모델 = 현재값 유지 → 오차 = |y(t+60) − y(t)|, 합성 데이터 수업 중이라 0 근처
     assert check["n"] >= 1 and check["mae_60"] >= 0
+
+
+def test_partial_bundle_then_hot_reload(root, engine, tmp_path):
+    """오토인코더·분류기 없이 예측만으로 먼저 운영하고, 전체 묶음이 오면 멈추지 않고 바꿔 끼운다."""
+    from service.__main__ import ModelWatcher
+    from service.engine import Engine, Models
+    from service.export import sha256
+
+    full = root / "data" / "models"
+    part = tmp_path / "models"
+    part.mkdir()
+    for name in ("forecast.onnx", "forecast.json", "normalization.json"):
+        shutil.copy(full / name, part / name)
+    manifest = json.loads((full / "manifest.json").read_text(encoding="utf-8"))
+    manifest["files"] = {n: sha256(part / n) for n in ("forecast.onnx", "forecast.json", "normalization.json")}
+    (part / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    eng = Engine(engine.settings, engine.schedule, engine.collector_cfg, engine.cfg, Models(part))
+    lab = eng.run_cycle(NOW)["spaces"]["lab"]
+    assert lab["forecast"]["co2"]["points"] and lab["anomaly"]["reason"] == "모델 없음" and lab["state"]["reason"] == "모델 없음"
+
+    watcher = ModelWatcher(eng)
+    assert watcher.check() is False                                  # 바뀐 것 없음
+    for name in ("autoencoder.onnx", "anomaly.json", "state.pkl"):
+        shutil.copy(full / name, part / name)
+    broken = json.loads((full / "manifest.json").read_text(encoding="utf-8"))
+    broken["files"]["state.pkl"] = "0" * 64                           # 아직 복사 중인 것처럼 해시가 안 맞음
+    (part / "manifest.json").write_text(json.dumps(broken), encoding="utf-8")
+    assert watcher.check() is False and eng.models.state is None
+    shutil.copy(full / "manifest.json", part / "manifest.json")
+    assert watcher.check() is True and eng.models.state is not None
+    assert eng.run_cycle(NOW)["spaces"]["lab"]["state"]["occupied_probability"] is not None

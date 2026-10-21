@@ -32,26 +32,36 @@ def now_utc():
 
 
 class Models:
+    """모델 묶음. 예측 모델은 꼭 있어야 하고, 오토인코더·분류기는 없으면 그 부분만 '모델 없음'으로 비운다."""
+
     def __init__(self, models_dir):
         import onnxruntime as ort
 
         self.dir = Path(models_dir)
-        self.forecast_meta = json.loads((self.dir / "forecast.json").read_text(encoding="utf-8"))
-        self.anomaly_meta = json.loads((self.dir / "anomaly.json").read_text(encoding="utf-8"))
-        self.normalization = json.loads((self.dir / "normalization.json").read_text(encoding="utf-8"))
         self.manifest = json.loads((self.dir / "manifest.json").read_text(encoding="utf-8"))
+        self.forecast_meta = json.loads((self.dir / "forecast.json").read_text(encoding="utf-8"))
+        self.normalization = json.loads((self.dir / "normalization.json").read_text(encoding="utf-8"))
         options = ort.SessionOptions()
         options.intra_op_num_threads = 2                     # 같은 보드의 다른 모델(LLM 등)을 위해 적게
-        self.forecast = ort.InferenceSession(str(self.dir / "forecast.onnx"), options, providers=["CPUExecutionProvider"])
-        self.autoencoder = ort.InferenceSession(str(self.dir / "autoencoder.onnx"), options, providers=["CPUExecutionProvider"])
-        import sklearn
+        session = lambda name: ort.InferenceSession(str(self.dir / name), options, providers=["CPUExecutionProvider"])  # noqa: E731
+        self.forecast = session("forecast.onnx")
+        self.anomaly_meta = self.autoencoder = self.state = None
+        if (self.dir / "anomaly.json").exists():
+            self.anomaly_meta = json.loads((self.dir / "anomaly.json").read_text(encoding="utf-8"))
+            self.autoencoder = session("autoencoder.onnx")
+        if (self.dir / "state.pkl").exists():
+            import sklearn
 
-        made_with = self.manifest.get("versions", {}).get("scikit-learn")
-        if made_with and made_with != sklearn.__version__:     # 피클은 같은 버전에서만 결과가 같다고 보장된다
-            raise RuntimeError(f"state.pkl은 scikit-learn {made_with}로 만들었다. 지금 {sklearn.__version__} → "
-                               f"pip install scikit-learn=={made_with}")
-        with (self.dir / "state.pkl").open("rb") as fp:
-            self.state = pickle.load(fp)
+            made_with = self.manifest.get("versions", {}).get("scikit-learn")
+            if made_with and made_with != sklearn.__version__:     # 피클은 같은 버전에서만 결과가 같다고 보장된다
+                raise RuntimeError(f"state.pkl은 scikit-learn {made_with}로 만들었다. 지금 {sklearn.__version__} → "
+                                   f"pip install scikit-learn=={made_with}")
+            with (self.dir / "state.pkl").open("rb") as fp:
+                self.state = pickle.load(fp)
+
+    def summary(self):
+        return {"forecast": self.forecast_meta["run_id"], "anomaly": self.autoencoder is not None,
+                "state": self.state is not None, "manifest_created": self.manifest["created_at"]}
 
 
 class Engine:
@@ -127,6 +137,8 @@ class Engine:
 
     def anomaly(self, frame, space, last_label):
         meta = self.models.anomaly_meta
+        if meta is None:
+            return {"score": None, "is_anomaly": None, "reason": "모델 없음"}
         values, mask, cond, valid = window_features(frame, space, meta["spaces"], self.models.normalization, self.schedule,
                                                     meta["window"], self.settings.timezone)
         p = len(frame) - 1
@@ -146,6 +158,8 @@ class Engine:
                 "by_metric": {METRICS[i]: round(float(per[0, i]), 4) for i in range(3) if present[0, i]}}
 
     def rule_alarms(self, frame, space, last_label):
+        if self.models.anomaly_meta is None:
+            return []
         rows = rule_module.apply({space: frame}, self.models.anomaly_meta["rules"], self.schedule, self.settings.timezone)
         recent = rows[rows["time"] >= last_label - pd.Timedelta(minutes=5)]
         return [{"rule": r.rule, "cause": r.cause, "time": r.time.strftime("%Y-%m-%dT%H:%M:%SZ")}
@@ -153,6 +167,8 @@ class Engine:
 
     def state(self, frame, space, last_label):
         st = self.models.state
+        if st is None:
+            return {"occupied": None, "reason": "모델 없음"}
         feats = sensor_features(frame)
         cal = calendar_frame(frame.index, space, self.schedule, self.settings.timezone)
         row = pd.concat([feats, cal], axis=1).loc[[last_label]]
@@ -210,7 +226,7 @@ class Engine:
         raw, last_label = self.read_raw(now)
         freshness = self.sensor_freshness(now)
         result = {"generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "slot": last_label.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                  "models": {"forecast": self.models.forecast_meta["run_id"], "manifest_created": self.models.manifest["created_at"]},
+                  "models": self.models.summary(),
                   "spaces": {}}
         clean = None
         if len(raw):

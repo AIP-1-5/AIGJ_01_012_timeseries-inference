@@ -91,6 +91,7 @@ def test_ten_minute_sensor_every_other_slot_filled(settings):
 
 
 def test_stuck_value_marked(settings):
+    settings.stuck_minutes["co2"] = 60          # 시험용으로 짧게 (실제 설정은 6시간)
     rows = [[minutes(m), "a", "사무실", "", "co2", 650] for m in range(0, 75)]          # 74분 동안 같은 값
     rows += [[minutes(m), "a", "사무실", "", "co2", 650 + (m % 7)] for m in range(75, 120)]
     clean, stats, _ = preprocess({"co2": raw(rows)}, settings)
@@ -101,6 +102,7 @@ def test_stuck_value_marked(settings):
 
 
 def test_stuck_sensor_dropped_from_median_when_others_ok(settings):
+    settings.stuck_minutes["co2"] = 60          # 시험용으로 짧게 (실제 설정은 6시간)
     rows = []
     for m in range(0, 90):
         rows.append([minutes(m), "stuck", "실습실", "", "co2", 450])

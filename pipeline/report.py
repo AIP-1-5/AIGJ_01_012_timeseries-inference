@@ -151,7 +151,8 @@ def build(settings, schedule, clean, split, normalization, diagnosis, baseline_t
         "| 공간 값 | 센서들의 중앙값 | 한 대가 고장 나도 크게 흔들리지 않는다 |",
         f"| 짧은 결측 | {settings.max_interp_minutes}분 이하만 선형 보간 | 10분 센서의 메시지 1건 손실까지만 채운다 |",
         "| 보간 값 | 입력에는 쓰되 정답으로는 안 쓴다 | 직선으로 채운 값을 맞히면 성적이 부푼다 |",
-        f"| 값 고정 | 같은 값 {int(next(iter(settings.stuck_minutes.values())))}분 이상 → 고장 의심 | 과제 4의 '값 고정' 고장. 학습·평가 정답에서 뺀다 |",
+        "| 값 고정 | 같은 값이 " + ", ".join(f"{m} {v / 60:g}시간" for m, v in settings.stuck_minutes.items())
+        + " 이상 → 고장 의심 | 과제 4의 '값 고정' 고장. 학습·평가 정답에서 뺀다. 기준은 정상인 빈방의 가장 긴 정체(CO₂ 3.3시간, 온도·습도 약 15시간)보다 길게 잡았다. 60분이면 온도·습도 해상도 때문에 정상인 밤이 고장으로 잡힌다 |",
         "",
         "## 3. 결측률과 제거 건수",
         "",

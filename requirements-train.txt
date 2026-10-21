@@ -1,0 +1,4 @@
+# 과제 3 학습용 (맥 전용). 보드에는 설치하지 않는다 (과제 7에서 ONNX로 옮긴다).
+-r requirements-analysis.txt
+torch>=2.4
+onnx>=1.16

@@ -1,0 +1,23 @@
+# 과제 3 60분 예측 설정 (specs/003-forecast-60min/data-model.md)
+
+[data]
+lookback_minutes = 120        # 과거 창 (2시간 = 24칸)
+min_window_fraction = 0.75    # 과거 창에서 쓸 수 있는 칸이 이 비율 이상인 시각만 표본으로
+
+[model]
+kind = "gru"                  # linear | gru
+hidden = 64
+layers = 2
+dropout = 0.1
+target = "delta"              # delta: 지금 값에서의 변화량 | value: 값 자체 (비교용)
+
+[train]
+seeds = [1, 2, 3]
+batch_size = 512
+learning_rate = 1e-3
+max_epochs = 30
+patience = 5                  # 검증 손실이 이만큼 연속으로 안 좋아지면 중단
+device = "cpu"                # 재현용 기본. 맥 GPU는 "mps"
+
+[variants]
+names = ["full", "no_schedule", "sensor_only"]

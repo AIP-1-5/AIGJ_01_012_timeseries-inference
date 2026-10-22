@@ -1,4 +1,7 @@
-"""CLI: python -m state run  (./state.sh run)
+"""CLI: python -m state run | observe  (./state.sh run)
+
+  observe --db <collector.db>  직접 관찰 기록(docs/observations/occupancy.csv)과 그 시간 실시간 센서로 모델·규칙 채점
+                               → docs/reports/005-observation.md (학습 안 함, 보드에서도 가벼움)
 
 사용 여부·환기 경보 분류기를 학습(학습 기간) → 임계값(검증 기간) → 시험 기간 한 번 평가 → 성적표.
 결과: docs/reports/005-classification.md, figures/005-*.png, data/state/ (모델·예측, 커밋 안 함)
@@ -276,11 +279,91 @@ def write_report(root, settings, clean, split, result, observations, occ_sweep, 
     (settings.reports_dir / "005-classification.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def observe(config_dir, db, models_path, log=print):
+    """관찰한 시간대의 수집기 데이터를 학습 때와 같은 전처리로 만들고, 저장된 모델·규칙으로 판정해 관찰과 비교."""
+    from anomaly.data import METRICS
+    from pipeline.loader import from_collector_db
+    from pipeline.preprocess import preprocess
+
+    config_dir = Path(config_dir)
+    settings = load_settings(config_dir / "preprocess.toml", root=config_dir.resolve().parent)
+    schedule = load_schedule(config_dir / "schedule.toml")
+    root = settings.root
+    observations = load_observations(root / "docs" / "observations" / "occupancy.csv")
+    if observations is None or observations.empty:
+        log("관찰 기록이 없다: docs/observations/occupancy.csv")
+        return 1
+    tz = settings.timezone
+    start = pd.Timestamp(observations["start_kst"].min(), tz=tz).tz_convert("UTC") - pd.Timedelta(hours=2)
+    end = pd.Timestamp(observations["end_kst"].max(), tz=tz).tz_convert("UTC") + pd.Timedelta(minutes=5)
+    raw = from_collector_db(db, start, end, list(METRICS))
+    clean, _, _ = preprocess({m: raw[raw["metric"].astype(str) == m] for m in METRICS}, settings)
+    frames = space_frames(clean, settings)
+    with Path(models_path).open("rb") as fp:
+        models = pickle.load(fp)
+    rows = []
+    for space in sorted(observations["space"].unique()):
+        frame = frames.get(space)
+        if frame is None:
+            log(f"{space}: 그 시간 센서 데이터 없음")
+            continue
+        table = sensor_features(frame)
+        table["observed"] = observation_labels(frame.index, space, observations, tz).to_numpy()
+        table["schedule"] = occupancy_labels(frame.index, space, schedule, tz, transition_minutes=0).to_numpy()
+        table = table[table["observed"].notna() & table["co2"].notna()]
+        if table.empty:
+            continue
+        prob = models["occupancy"].predict_proba(table[models["occupancy_features"]])[:, 1]
+        table = table.assign(space=space, time=table.index, prob=prob,
+                             model=(prob >= models["occupancy_threshold"]).astype(int),
+                             rule=(table["co2_d15"] >= 30).astype(int))
+        rows.append(table.reset_index(drop=True))
+    if not rows:
+        log("관찰 시간대에 쓸 수 있는 센서 칸이 없다")
+        return 1
+    table = pd.concat(rows, ignore_index=True)
+    m_model, m_rule = metrics(table["observed"], table["model"]), metrics(table["observed"], table["rule"])
+    sched = table[table["schedule"].notna()]
+    m_sched = metrics(sched["observed"], sched["schedule"]) if len(sched) else None
+    header = "| 방법 | 표본 | 정확도 | 정밀도 | 재현율 | F1 | macro-F1 | 비어있음→사용중 |\n|---|---:|---:|---:|---:|---:|---:|---:|"
+    lines = [
+        "# 과제 5 직접 관찰 채점", "",
+        f"`python -m state observe`가 만든 표. 만든 시각 {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC. 해석은 [005-state.md](005-state.md).", "",
+        "## 측정 조건", "",
+        "| 항목 | 값 |", "|---|---|",
+        f"| 정답 | 사람이 직접 본 인원 (`docs/observations/occupancy.csv`, {len(observations)}구간) → 0명이면 비어있음, 1명 이상이면 사용중 |",
+        f"| 입력 | 그 시간 실시간 수집기 DB(`{Path(db).name}`), 학습 때와 같은 전처리(`pipeline.preprocess`) |",
+        f"| 모델 | 과제 5 사용 여부 분류기(센서만, 임계값 {models['occupancy_threshold']:.2f}, 검증 기간으로 정함). 다시 학습하지 않음 |",
+        "| 규칙 | 15분 CO₂ 변화 ≥ +30 ppm |",
+        f"| 칸 | 5분, 관찰 구간 안의 칸 {len(table)}개 |", "",
+        "## 결과", "", header, metric_row("모델", m_model), metric_row("규칙: 15분 CO₂ +30 ppm 이상", m_rule),
+    ]
+    if m_sched:
+        lines.append(metric_row("일정표 자체 (정답과 비교)", m_sched))
+    lines += ["", "모델 혼동 행렬:", "", cm_text(m_model), "", "## 칸별", "",
+              "| 공간 | 시각 (KST) | 관찰 | 모델 확률 | 모델 | 규칙 | CO₂ | 15분 변화 |", "|---|---|---:|---:|---:|---:|---:|---:|"]
+    for r in table.itertuples():
+        local = pd.Timestamp(r.time).tz_convert(tz).strftime("%m-%d %H:%M")
+        d15 = "-" if pd.isna(r.co2_d15) else f"{r.co2_d15:+.0f}"
+        lines.append(f"| {r.space} | {local} | {int(r.observed)} | {r.prob:.2f} | {r.model} | {r.rule} | {r.co2:.0f} | {d15} |")
+    (settings.reports_dir / "005-observation.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    fo = m_model["false_occupied_rate"]
+    log(f"관찰 {len(table)}칸: 모델 정확도 {m_model['accuracy']:.1%}, F1 {m_model['f1']:.3f}, "
+        f"비어있음→사용중 {'-' if fo is None else f'{fo:.1%}'} | 규칙 F1 {m_rule['f1']:.3f}")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m state", description="과제 5 상태 추정")
-    parser.add_argument("command", choices=["run"])
+    parser.add_argument("command", choices=["run", "observe"])
     parser.add_argument("--config-dir", default="config")
+    parser.add_argument("--db", help="observe: 수집기 DB (보드 A에서 복사한 collector.db)")
+    parser.add_argument("--models", default="data/state/models.pkl", help="observe: 과제 5 모델 (data/state/models.pkl 또는 data/models/state.pkl)")
     args = parser.parse_args(argv)
+    if args.command == "observe":
+        if not args.db:
+            parser.error("observe에는 --db가 필요하다")
+        return observe(Path(args.config_dir), args.db, args.models)
     from pipeline.guard import refuse_training_on_board
 
     if refuse_training_on_board("과제 5 분류기"):

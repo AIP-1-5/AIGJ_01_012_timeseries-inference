@@ -57,3 +57,41 @@ def test_threshold_recall_rule():
     prob = np.r_[np.linspace(0, 0.5, 90), np.linspace(0.3, 0.9, 10)]
     threshold, _ = choose_threshold(prob, y, "recall")
     assert ((prob >= threshold)[y == 1]).mean() >= 0.85
+
+
+def test_observe_scores_direct_observations(tmp_path):
+    """직접 관찰 기록 + 그 시간 수집기 DB → 모델·규칙 채점표 (다시 학습하지 않음)."""
+    import pickle
+    import shutil
+
+    from sklearn.ensemble import HistGradientBoostingClassifier
+
+    from collector.store import Store
+    from state.__main__ import main as state_main
+    from state.features import SENSOR_FEATURES
+    from tests.test_service import insert_rows
+
+    root = tmp_path
+    (root / "config").mkdir()
+    for name in ("preprocess.toml", "schedule.toml"):
+        shutil.copy(ROOT / "config" / name, root / "config" / name)
+    (root / "docs" / "observations").mkdir(parents=True)
+    (root / "docs" / "reports").mkdir(parents=True)
+    (root / "docs" / "observations" / "occupancy.csv").write_text(
+        "space,start_kst,end_kst,people,note\n"
+        "실습실,2026-04-14 12:10,2026-04-14 12:50,0,점심\n"
+        "실습실,2026-04-14 13:40,2026-04-14 14:30,17,수업\n", encoding="utf-8")
+    db = root / "collector.db"
+    Store(db).close()
+    insert_rows(db, pd.Timestamp("2026-04-14T01:00Z"), pd.Timestamp("2026-04-14T06:00Z"))
+    rng = np.random.default_rng(0)
+    co2 = np.r_[rng.normal(450, 10, 200), rng.normal(850, 10, 200)]
+    X = pd.DataFrame({f: rng.normal(0, 1, 400) for f in SENSOR_FEATURES})
+    X["co2"] = co2
+    model = HistGradientBoostingClassifier(max_iter=20).fit(X[SENSOR_FEATURES], (co2 > 650).astype(int))
+    with (root / "models.pkl").open("wb") as fp:
+        pickle.dump({"occupancy": model, "occupancy_threshold": 0.5, "occupancy_features": SENSOR_FEATURES}, fp)
+    assert state_main(["observe", "--config-dir", str(root / "config"), "--db", str(db), "--models", str(root / "models.pkl")]) == 0
+    text = (root / "docs" / "reports" / "005-observation.md").read_text(encoding="utf-8")
+    assert "| 모델 |" in text and "비어있음→사용중" in text
+    assert "| 실습실 | 04-14 12:15 | 0 |" in text and "| 실습실 | 04-14 14:00 | 1 |" in text

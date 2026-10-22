@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="교육장 공기, 매분 판단합니다">
+<rect x="0.5" y="0.5" width="1279" height="359" rx="18" fill="#FAF9F5" stroke="#E6DFD8"/>
+<text x="64" y="86" font-family="Pretendard,-apple-system,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="15" font-weight="500" letter-spacing="2.4" fill="#6C6A64">AIGJ 01-012 · TIMESERIES INFERENCE</text>
+<rect x="64" y="106" width="56" height="5" rx="2.5" fill="#CC785C"/>
+<text x="62" y="182" font-family="'Noto Serif KR','Nanum Myeongjo','AppleMyungjo','Batang',serif" font-size="50" letter-spacing="-1" fill="#141413">교육장 공기, 매분 판단합니다</text>
+<text x="64" y="228" font-family="Pretendard,-apple-system,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="20" fill="#3D3D3A">CO₂ · 온도 · 습도로 60분 뒤를 예측하고</text>
+<text x="64" y="258" font-family="Pretendard,-apple-system,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="20" fill="#3D3D3A">이상 · 사용 여부 · 환기 필요를 매분 알려 주는 상시 추론 서비스</text>
+<text x="64" y="308" font-family="Pretendard,-apple-system,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif" font-size="15" font-weight="500" fill="#6C6A64">Jetson Orin Nano Super · ONNX Runtime · MQTT · API :8080</text>
+<rect x="852" y="70" width="364" height="220" rx="12" fill="#181715" stroke="#E6DFD8"/>
+<path d="M852 82 a12 12 0 0 1 12 -12 h340 a12 12 0 0 1 12 12 v24 h-364 z" fill="#252320"/>
+<text x="872" y="94" font-family="'JetBrains Mono',D2Coding,Menlo,Consolas,monospace" font-size="13" fill="#A09D96">team5-a · 상시 추론 서비스</text>
+<text x="872" y="140" font-family="'JetBrains Mono',D2Coding,Menlo,Consolas,monospace" font-size="15"><tspan fill="#5DB8A6">$ </tspan><tspan fill="#FAF9F5">./collector.sh status</tspan></text>
+<text x="872" y="170" font-family="'JetBrains Mono',D2Coding,Menlo,Consolas,monospace" font-size="15"><tspan fill="#5DB8A6">$ </tspan><tspan fill="#FAF9F5">./service.sh once</tspan></text>
+<text x="872" y="200" font-family="'JetBrains Mono',D2Coding,Menlo,Consolas,monospace" font-size="15"><tspan fill="#5DB8A6">$ </tspan><tspan fill="#FAF9F5">./service.sh run</tspan></text>
+<text x="872" y="230" font-family="'JetBrains Mono',D2Coding,Menlo,Consolas,monospace" font-size="15" fill="#E8A55A">GET /v1/spaces</text>
+<text x="872" y="260" font-family="'JetBrains Mono',D2Coding,Menlo,Consolas,monospace" font-size="14" fill="#A09D96"># 매분: 전처리 → ONNX → API · MQTT</text>
+</svg>

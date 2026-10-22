@@ -6,3 +6,5 @@
 - 한 줄 = 한 구간. `start_kst`, `end_kst`는 한국 시간 `YYYY-MM-DD HH:MM`, `people`은 그 구간 동안 있던 사람 수(대략, 0이면 비어 있음)
 - 30분 단위 정도로 적으면 충분하다. 수업 시작·점심·퇴실 앞뒤가 가장 쓸모 있다(모델이 가장 많이 헷갈리는 때)
 - 개인 이름은 적지 않는다. 사람 수만 적는다
+- 채점: 보드 A의 `data/collector.db`를 복사해 와서 `python -m state observe --db <복사한 collector.db>` → `docs/reports/005-observation.md`
+  (관찰한 시간의 실시간 센서로 모델·규칙을 판정해 비교한다. 학습은 하지 않는다)

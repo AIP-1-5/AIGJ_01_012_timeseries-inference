@@ -95,3 +95,18 @@ def test_observe_scores_direct_observations(tmp_path):
     text = (root / "docs" / "reports" / "005-observation.md").read_text(encoding="utf-8")
     assert "| 모델 |" in text and "비어있음→사용중" in text
     assert "| 실습실 | 04-14 12:15 | 0 |" in text and "| 실습실 | 04-14 14:00 | 1 |" in text
+
+
+def test_occupancy_threshold_keeps_false_occupied_under_limit():
+    from state.__main__ import FALSE_OCC_LIMIT
+
+    rng = np.random.default_rng(0)
+    y = np.r_[np.zeros(1000), np.ones(300)].astype(int)
+    prob = np.r_[rng.uniform(0, 0.6, 1000), rng.uniform(0.3, 1.0, 300)]
+    threshold, table = choose_threshold(prob, y, "control")
+    false_occ = (prob[y == 0] >= threshold).mean()
+    assert false_occ <= FALSE_OCC_LIMIT
+    ok = table[table["false_occupied_rate"] <= FALSE_OCC_LIMIT]
+    assert threshold == ok.sort_values(["recall", "f1", "threshold"], ascending=[False, False, False]).iloc[0]["threshold"]
+    f1_threshold, _ = choose_threshold(prob, y, "f1")
+    assert "false_occupied_rate" in table.columns and f1_threshold > 0

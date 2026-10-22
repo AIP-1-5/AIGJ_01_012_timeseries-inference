@@ -224,3 +224,23 @@ def test_cli_end_to_end_and_test_lock(tmp_path, settings, capsys):
     assert "완료 조건" in report and "현재값 유지" in report and "일정 정보의 가치" in report
     assert main(["analyze", *config]) == 0
     assert (root / "docs" / "reports" / "figures" / "003-error-by-time.png").exists()
+
+
+def test_ensemble_selects_on_validation_only(tmp_path, settings):
+    from forecast.__main__ import main
+
+    root = make_root(tmp_path, settings)
+    config = ["--config", str(root / "config" / "forecast.toml")]
+    assert main(["train", "--kind", "gru", "--variant", "full", "--seed", "1", *config]) == 0
+    assert main(["train", "--kind", "gru", "--variant", "full", "--seed", "2", *config]) == 0
+    assert main(["train", "--kind", "gru", "--variant", "full", "--seed", "1", "--target", "value", *config]) == 0
+    assert main(["ensemble", *config]) == 0
+    record = json.loads((root / "data" / "forecast" / "ensemble_selection.json").read_text(encoding="utf-8"))
+    assert record["chosen"] in record["candidates"]
+    assert "seed_avg:full" in record["candidates"] and any(k.startswith("blend:") for k in record["candidates"])
+    assert record["second_test_period"]["start"].startswith("2026-10-22")
+    assert not (root / "docs" / "reports" / "003-test-log.md").exists()     # 시험 기간은 건드리지 않음
+    first = record["decided_at"]
+    assert main(["ensemble", *config]) == 0                                   # 다시 고르지 않음
+    again = json.loads((root / "data" / "forecast" / "ensemble_selection.json").read_text(encoding="utf-8"))
+    assert again["decided_at"] == first

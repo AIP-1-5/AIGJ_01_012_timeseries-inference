@@ -94,6 +94,12 @@ def cmd_evaluate(args, fs):
     return EXIT_OK
 
 
+def cmd_ensemble(args, fs):
+    from .ensemble import run
+
+    return run(fs)
+
+
 def cmd_compare(args, fs):
     from .compare import run
 
@@ -137,6 +143,7 @@ def build_parser():
     p.add_argument("--all", action="store_true")
     p.set_defaults(func=cmd_evaluate)
 
+    sub.add_parser("ensemble", parents=[common], help="2차 선택: 씨앗 평균·시점별 섞기를 검증 기간으로 고르기 (시험은 새 기간에서)").set_defaults(func=cmd_ensemble)
     sub.add_parser("compare", parents=[common], help="기준선 + 모델 비교표").set_defaults(func=cmd_compare)
     sub.add_parser("analyze", parents=[common], help="공간별·시각별 오차 분석").set_defaults(func=cmd_analyze)
     return parser

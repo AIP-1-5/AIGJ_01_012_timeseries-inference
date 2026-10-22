@@ -3,7 +3,7 @@
 [inject]                       # 검증·시험 기간 복사본에 심는 합성 고장
 per_type = 8                   # 종류마다 몇 건
 val_seed = 11                  # 검증 복사본 (임계값 정하기)
-test_seed = 22                 # 시험 복사본 (한 번 평가)
+test_seed = 33                 # 시험 복사본 (한 번 평가). 1차(10-22)는 22였다. 22 결과는 --seed 22로 다시 낼 수 있다
 spike_co2 = [400, 1200]        # 튄 값 크기 (ppm)
 spike_temperature = [4, 8]     # (℃)
 stuck_hours = [1, 4]

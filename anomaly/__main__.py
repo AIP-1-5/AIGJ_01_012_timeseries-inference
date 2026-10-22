@@ -136,15 +136,17 @@ def cmd_calibrate(ctx):
 
 
 def cmd_evaluate(ctx):
+    """시험 복사본 평가. --seed로 다른 씨앗을 주면 성적표를 004-detection-seed<N>.md로 따로 쓴다."""
     threshold_path = ctx.out / "threshold.json"
     if not threshold_path.exists():
         print("거부: 먼저 calibrate로 검증 기간에서 임계값을 정한다", file=sys.stderr)
         return 2
     chosen = json.loads(threshold_path.read_text(encoding="utf-8"))
     model, params = ctx.load_model(), rule_module.load(ctx.out / "rules.json")
-    frames, faults = inject(ctx.frames, *ctx.period("test"), ctx.cfg.inject, int(ctx.cfg.inject.get("test_seed", 22)),
-                            ctx.settings, ctx.schedule)
-    save_faults(faults, ctx.out / "faults_test.csv")
+    seed = ctx.seed if ctx.seed is not None else int(ctx.cfg.inject.get("test_seed", 22))
+    suffix = "" if seed == int(ctx.cfg.inject.get("test_seed", 22)) else f"-seed{seed}"
+    frames, faults = inject(ctx.frames, *ctx.period("test"), ctx.cfg.inject, seed, ctx.settings, ctx.schedule)
+    save_faults(faults, ctx.out / f"faults_test{suffix}.csv")
     score_table, rule_rows = detect(ctx, frames, model, params)
     days, alarm = days_of(ctx, "test"), ctx.cfg.alarm
     merge, grace = int(alarm.get("merge_minutes", 60)), int(alarm.get("grace_minutes", 60))
@@ -159,12 +161,12 @@ def cmd_evaluate(ctx):
                       "model_rate": summarize(faults, alarms_for(["model"], score_table, rule_rows, t), days, merge, grace)[2]["rate"]})
     # 규칙별 헛경보 (어떤 규칙이 헛경보를 내는지)
     false_by_rule = results["combined"]["false_events"]["detectors"].str.split(",").explode().value_counts().to_dict()
-    write_report(ctx, faults, results, chosen, pd.DataFrame(sweep), false_by_rule, params)
+    write_report(ctx, faults, results, chosen, pd.DataFrame(sweep), false_by_rule, params, seed, suffix)
     summary = {name: r["overall"] for name, r in results.items()}
     summary["false_by_detector"] = false_by_rule
     summary["threshold"] = chosen["threshold"]
-    (ctx.out / "test_results.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    results["combined"]["per_fault"].to_csv(ctx.out / "per_fault_test.csv", index=False)
+    (ctx.out / f"test_results{suffix}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    results["combined"]["per_fault"].to_csv(ctx.out / f"per_fault_test{suffix}.csv", index=False)
     for name, r in results.items():
         o = r["overall"]
         print(f"{name:<9} 탐지 {o['detected']}/{o['total']} ({o['rate']:.0%}), 헛경보 {o['false_per_day']:.2f}회/일, 지연 중앙값 {o['delay_median_min']}분")
@@ -187,7 +189,7 @@ def kind_table(results, faults):
     return "\n".join(lines)
 
 
-def write_report(ctx, faults, results, chosen, sweep, false_by_rule, params):
+def write_report(ctx, faults, results, chosen, sweep, false_by_rule, params, seed, suffix=""):
     import matplotlib.pyplot as plt
 
     from pipeline.diagnose import SERIES, SURFACE, TEXT, TEXT_SECONDARY, setup_font, style_axes
@@ -209,7 +211,7 @@ def write_report(ctx, faults, results, chosen, sweep, false_by_rule, params):
     ax.set_title("임계값을 바꿀 때 탐지율과 헛경보 (점선 = 확인 기준)" if korean else "threshold trade-off",
                  color=TEXT, fontsize=11, loc="left")
     fig.tight_layout()
-    figure = ctx.settings.reports_dir / "figures" / "004-threshold.png"
+    figure = ctx.settings.reports_dir / "figures" / f"004-threshold{suffix}.png"
     figure.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure, dpi=130, facecolor=SURFACE)
     plt.close(fig)
@@ -224,7 +226,7 @@ def write_report(ctx, faults, results, chosen, sweep, false_by_rule, params):
         "",
         conditions_block(ctx.settings, ctx.clean, ctx.split, {
             "고장": f"합성 5종을 실데이터 복사본에 주입. 검증 씨앗 {ctx.cfg.inject.get('val_seed')} {len(pd.read_csv(ctx.out / 'faults_val.csv'))}건(임계값 결정), "
-                    f"시험 씨앗 {ctx.cfg.inject.get('test_seed')} {len(faults)}건(평가)",
+                    f"시험 씨앗 {seed} {len(faults)}건(평가)",
             "모델": f"오토인코더 (창 {ctx.window}칸, 학습 기간 정상 데이터만), 임계값 {chosen['threshold']:.4f} ({chosen['decided_at']}, 검증 기준)",
             "규칙 기준값": f"학습 기간. 값 고정 칸 수 {params['stuck']} (정상 최장 {params['stuck_normal_max']})",
             "경보 묶기": f"{ctx.cfg.alarm.get('merge_minutes')}분 안의 경보는 한 이벤트, 고장 끝 뒤 유예 {ctx.cfg.alarm.get('grace_minutes')}분",
@@ -250,7 +252,7 @@ def write_report(ctx, faults, results, chosen, sweep, false_by_rule, params):
         delay = f"{o['delay_median_min']:.0f}분" if o["delay_median_min"] is not None else "-"
         lines.append(f"| {label} | {o['detected']}/{o['total']} | {o['rate']:.0%} | {delay} | {o['false_alarms']} | {o['false_per_day']:.2f} |")
     lines += ["", f"헛경보를 낸 탐지기 (결합): {false_by_rule or '없음'}", "",
-              "## 임계값을 바꿀 때", "", "![004-threshold](figures/004-threshold.png)", "",
+              "## 임계값을 바꿀 때", "", f"![004-threshold](figures/004-threshold{suffix}.png)", "",
               "| 임계값 | 검증 결합 탐지율 | 검증 헛경보/일 | 시험 결합 탐지율 | 시험 헛경보/일 | 시험 모델만 탐지율 |", "|---:|---:|---:|---:|---:|---:|"]
     for v, t in zip(chosen["sweep"], sweep.to_dict(orient="records")):
         mark = " ← 선택" if abs(v["threshold"] - chosen["threshold"]) < 1e-9 else ""
@@ -259,17 +261,20 @@ def write_report(ctx, faults, results, chosen, sweep, false_by_rule, params):
     missed = results["combined"]["per_fault"].merge(faults[["event_id", "start", "size"]], on="event_id")
     for r in missed[~missed["detected"]].itertuples():
         lines.append(f"| {KIND_LABELS[r.kind]} | {r.space} | {r.metric} | {pd.Timestamp(r.start).tz_convert(ctx.tz):%m-%d %H:%M} | {r.size:.1f} |")
-    (ctx.settings.reports_dir / "004-detection.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"성적표 → {ctx.settings.reports_dir / '004-detection.md'}")
+    report = ctx.settings.reports_dir / f"004-detection{suffix}.md"
+    report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"성적표 → {report}")
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m anomaly", description="과제 4 이상 탐지")
     parser.add_argument("command", choices=["train", "calibrate", "evaluate", "all"])
     parser.add_argument("--config", default="config/anomaly.toml")
+    parser.add_argument("--seed", type=int, help="evaluate: 설정의 test_seed 대신 이 씨앗으로 고장을 심는다")
     args = parser.parse_args(argv)
     try:
         ctx = Context(args.config)
+        ctx.seed = args.seed
     except (SettingsError, FileNotFoundError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         return 2

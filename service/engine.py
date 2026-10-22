@@ -85,8 +85,11 @@ class Engine:
         uri = f"file:{self.db.resolve()}?mode=ro"
         since = (now - pd.Timedelta(hours=float(self.cfg["data"].get("history_hours", 26)))).strftime("%Y-%m-%dT%H:%M:%S")
         with sqlite3.connect(uri, uri=True) as conn:
+            # 계산에 쓰는 항목(CO₂·온도·습도)을 보내는 센서만 본다. 문 열림 센서(WS301)처럼 사건이 있을 때만
+            # 보내는 센서를 1분 센서로 보면 밤새 '끊김'으로 잘못 잡힌다 (2026-10-22 보드 A에서 관찰)
             rows = conn.execute("SELECT device_id, device_profile, space, MAX(measured_at) FROM measurements "
-                                "WHERE measured_at >= ? GROUP BY device_id", (since,)).fetchall()
+                                f"WHERE measured_at >= ? AND metric IN ({','.join('?' * len(METRICS))}) GROUP BY device_id",
+                                (since, *METRICS)).fetchall()
         factor = float(self.cfg["data"].get("stale_factor", 3))
         floor_min = float(self.cfg["data"].get("stale_min_minutes", 15))
         out = []

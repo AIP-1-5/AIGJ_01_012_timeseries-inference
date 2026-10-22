@@ -304,3 +304,15 @@ def test_service_runs_without_torch():
             "from service.__main__ import ModelWatcher\n")
     done = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
     assert done.returncode == 0, done.stderr
+
+
+def test_event_sensor_is_not_a_gap(root, engine):
+    """문 열림 센서(WS301)처럼 사건이 있을 때만 보내는 센서는 끊김 판정에서 뺀다 (2026-10-22 관찰)."""
+    iso = (NOW - pd.Timedelta(hours=15)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    with sqlite3.connect(root / "data" / "collector.db") as conn:
+        conn.execute("INSERT INTO measurements (message_key, device_id, device_profile, space, spot, metric, value, measured_at, "
+                     "time_source, received_at, source, topic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                     ("door", "door-1", "WS301", "사무실", "s", "magnet_status", 0.0, iso, "time", iso, "test", "t"))
+    office = engine.run_cycle(NOW)["spaces"]["office"]
+    assert office["sensors"]["total"] == 1 and office["sensors"]["stale"] == []
+    assert not [a for a in office["alerts"] if a["type"] in ("sensor_gap", "data_gap")]

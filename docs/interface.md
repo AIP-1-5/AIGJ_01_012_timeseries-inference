@@ -56,7 +56,7 @@ $ curl -s 'http://100.113.228.46:8080/v1/spaces/meeting/forecast?minutes=30'
 | --- | --- | --- |
 | `space`, `slug` | 문자열 | 공간 이름(한글), 영문 slug |
 | `slot` | 시각 | 결과 기준 5분 칸의 끝 시각. `[slot−5분, slot)` 측정값까지 반영 |
-| `sensors.total` / `.stale` / `.last_seen` | 개수 / 센서 ID 목록 / 시각 | 최근 26시간 안에 보고한 센서 수, 끊긴 센서(기대 간격 × 3, 최소 15분 넘게 없음), 마지막 수신 |
+| `sensors.total` / `.stale` / `.last_seen` | 개수 / 센서 ID 목록 / 시각 | 최근 26시간 안에 CO₂·온도·습도를 보고한 센서 수(문 열림 센서 등은 제외), 끊긴 센서(기대 간격 × 3, 최소 15분 넘게 없음), 마지막 수신 |
 | `forecast.co2`, `forecast.temperature` | 객체 또는 없음 | `now`(지금 값), `as_of`, `points[{minutes, value}]` 5~60분 12개. 과거 2시간 중 75% 미만만 값이 있거나 최근 값이 15분 넘게 끊기면 빠진다 |
 | `forecast_unavailable` | 문자열 | 예측을 못 낸 이유 (예: `최근 값이 끊김`) |
 | `anomaly.score` / `.threshold` / `.is_anomaly` | 실수 / 실수 / 참·거짓 | 오토인코더 재구성 오차(최근 15분, 정규화 단위). `score > threshold`이면 이상 |

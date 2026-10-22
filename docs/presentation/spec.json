@@ -1,0 +1,289 @@
+{
+  "title": "교육장 공기 상태 추론 서비스 — 과제 1~8 결과",
+  "author": "jaeung (팀5)",
+  "output": "final-presentation.pptx",
+  "script": false,
+  "fonts": { "head": "Pretendard", "body": "Pretendard SemiBold", "mono": "JetBrains Mono", "headBold": true },
+  "slides": [
+    {
+      "type": "cover",
+      "title": "교육장 공기, 매분 판단합니다",
+      "subtitle": "시계열 데이터 추론 실습 과제 1~8 결과 보고",
+      "meta": "2026-10-22 · 팀5 jaeung · Jetson Orin Nano Super (MAXN SUPER)",
+      "terminal": ["$ curl http://100.113.228.46:8080/health", ["\"status\": \"ok\"", "success"], ["\"failures\": 0", "amber"]],
+      "terminalLabel": "보드 A 상시 서비스 응답 (주요 필드)",
+      "notes": "제출용 자료. 서비스 주소 http://100.113.228.46:8080 (Tailscale)."
+    },
+    {
+      "eyebrow": "SUMMARY",
+      "title": "8개 과제 중 6개 통과, 못 넘은 2개는 원인을 숫자로 설명한다",
+      "badge": "시험 2026-09-23 ~ 10-21",
+      "blocks": [
+        { "kind": "table", "colW": [1.1, 3, 3.6, 1.4], "size": 15, "rows": [
+          ["과제", "핵심 기준", "결과", "판정"],
+          ["1 수집", "재접속 1분 · 재부팅 복구 · 커버율 95%", "15~18초 · 56초 · 최저 98.3%", "통과"],
+          ["2 기준선", "가장 강한 기준선과 이유", "현재값 유지 (60분 36.3 ppm)", "통과"],
+          ["3 예측", "60분 CO₂ 30% 감소 · 온도 개선", "13.8% 감소 · 온도 32.6% 감소", "× 미통과"],
+          ["4 탐지", "탐지율 80% · 헛경보 하루 1회", "69% · 0회", "× 미통과"],
+          ["5 상태", "환기 재현율 85% · macro-F1 > 규칙", "88.0% · 0.626 > 0.608", "통과"],
+          ["6 사전학습", "같은 시점 · 네 가지 근거", "GRU 31.3 < Chronos 32.4 ppm", "통과"],
+          ["7 엣지", "변환 후 차이 1 ppm · 조건 기록", "ONNX 0.25 ppm · 0.22 ms", "통과"],
+          ["8 서비스", "12시간 · 정지 경보 · API · 문서", "12:14부터 가동 · API·문서 완료", "진행 중"]
+        ] },
+        { "kind": "text", "size": 16, "color": "muted", "lines": ["모델과 임계값은 검증 기간으로만 골랐고, 시험 결과를 본 뒤 다시 고르지 않았다."] }
+      ],
+      "notes": "전체 판정 요약."
+    },
+    {
+      "eyebrow": "SYSTEM",
+      "title": "맥이 배우고, 보드 A가 매분 판단한다",
+      "blocks": [
+        { "kind": "cards", "h": 2.5, "items": [
+          { "kicker": "맥", "title": "학습", "body": ["InfluxDB 과거 1년치로 학습", "예측 · 이상 · 상태 모델 3개", "ONNX로 내보내 보드로 복사"] },
+          { "kicker": "보드 A · 24시간", "title": "운영", "body": ["수집기: MQTT → SQLite", "매분: 학습과 같은 전처리 → 판단", "API :8080 · MQTT · 대시보드"], "fill": "dark" },
+          { "kicker": "보드 B", "title": "측정", "body": ["Jetson 속도 · 메모리 측정", "시험용 수집기", "학습 금지 (코드로 거부)"] }
+        ] },
+        { "kind": "table", "colW": [1.3, 4.5], "size": 15, "rows": [
+          ["측정 조건", "값"],
+          ["데이터", "실데이터 (교육장 InfluxDB · MQTT), 합성 아님"],
+          ["기간 분할", "학습 2025-09-03 ~ 2026-08-26 · 검증 ~ 09-23 · 시험 ~ 10-21 (시간 순서)"],
+          ["정규화", "학습 기간 값만으로 계산, 맥 · 보드가 같은 전처리 코드 사용"],
+          ["보드", "Jetson Orin Nano Super 8GB, JetPack 7.2.1, 전력 모드 MAXN SUPER"]
+        ] }
+      ],
+      "notes": "구조와 측정 조건."
+    },
+    {
+      "type": "section", "num": "01", "title": "수집과 기준선", "desc": "과제 1 · 2",
+      "notes": "과제 1·2."
+    },
+    {
+      "eyebrow": "TASK 1 · COLLECTION",
+      "title": "두 보드 모두 24시간 커버율 95%를 넘었다",
+      "badge": "10-21 14:30 ~ 10-22 14:35",
+      "blocks": [
+        { "kind": "row", "widths": [1, 1], "cols": [
+          { "kind": "table", "colW": [1.6, 1.3, 1.6], "size": 15, "rows": [
+            ["", "보드 A (운영)", "보드 B (실험)"],
+            ["통과 항목", "30 / 30", "30 / 30"],
+            ["최저 커버율", "98.3%", "97.5%"],
+            ["결측 구간", "0", "18"],
+            ["재접속 시험", "-", "15 · 18 · 18초"],
+            ["재부팅 후 재수집", "-", "56초"]
+          ] },
+          { "kind": "text", "size": 16, "lines": [
+            [["왜", {"bold": true, "color": "ink"}]],
+            "보드 B의 결측 18개는 모두 학습 부하로 보드가 멈춘 두 번(각 4~6분)에서 나왔다. 두 번 다 수집기가 사람 손 없이 다시 켜졌다.",
+            [["그래서", {"bold": true, "color": "ink"}]],
+            "보드 학습 금지(코드로 거부), 무거운 작업은 메모리 2GB 상한. 운영 판정은 장애가 없던 보드 A로 한다.",
+            [["더 본 것", {"bold": true, "color": "ink"}]],
+            "게이트웨이 시계가 약 5분 빨라 메시지의 46%가 60초 넘게 어긋남 → 기준 시각은 네트워크 서버 시각. 사무실 CO₂ 센서 배터리 1%."
+          ] }
+        ] }
+      ],
+      "notes": "근거: docs/reports/001-collection-status.md, 001-collection-status-b.md, 001-failure-tests.md."
+    },
+    {
+      "eyebrow": "TASK 2 · BASELINE",
+      "title": "가장 강한 기준선은 '지금 값 그대로'였다",
+      "badge": "시험 기간 60분 CO₂",
+      "blocks": [
+        { "kind": "row", "widths": [3, 2], "cols": [
+          { "kind": "chart", "chartType": "bar", "title": "기준선별 60분 CO₂ 오차 MAE (ppm)", "labels": ["현재값 유지", "최근 1시간 평균", "어제 같은 시각"], "series": [{ "name": "MAE", "values": [36.3, 46.8, 117.7] }], "highlight": 0, "min": 0, "h": 3.8 },
+          { "kind": "text", "size": 16, "lines": [
+            [["왜", {"bold": true, "color": "ink"}]],
+            "CO₂는 천천히 변하고, 큰 변화는 하루 몇 번(수업 시작 · 점심 · 퇴실)뿐이다.",
+            "'어제 같은 시각'은 요일 · 공휴일 · 수업 유무가 날마다 달라 가장 나쁘다.",
+            [["그래서", {"bold": true, "color": "ink"}]],
+            "이후 모든 모델은 현재값 유지와 같은 평가 시점(20,065개)에서 비교한다."
+          ] }
+        ] }
+      ],
+      "notes": "근거: 002-baselines.md, 002-diagnosis.md."
+    },
+    {
+      "type": "section", "num": "02", "title": "예측 · 탐지 · 상태", "desc": "과제 3 · 4 · 5 · 6",
+      "notes": "과제 3~6."
+    },
+    {
+      "eyebrow": "TASK 3 · FORECAST",
+      "title": "모든 시점에서 이겼지만, 60분 30% 감소는 못 넘었다",
+      "badge": "GRU · 검증으로 선택",
+      "blocks": [
+        { "kind": "row", "widths": [3, 2], "cols": [
+          { "kind": "chart", "chartType": "col", "title": "CO₂ 오차 MAE (ppm)", "labels": ["5분", "15분", "30분", "60분"], "series": [{ "name": "현재값 유지", "values": [7.3, 12.3, 22.0, 36.3] }, { "name": "GRU", "values": [7.0, 10.9, 18.7, 31.3] }], "colors": ["8E8B82", "CC785C"], "min": 0, "h": 4.4 },
+          { "kind": "text", "size": 16, "lines": [
+            [["왜", {"bold": true, "color": "ink"}]],
+            "· 시험 기간에 추석 · 공휴일 → 기준선 오차가 검증 110에서 시험 36 ppm",
+            "· 수업 시작은 센서에 미리 안 보인다 (이때 기준선보다 48% 나쁨)",
+            "· 회의실은 일정표가 없다 (큰 오차 상위 50개 중 39개)",
+            [["그래서", {"bold": true, "color": "ink"}]],
+            "여러 기간으로 교차 검증, 문 열림 · 냉난방 · 회의 예약 정보 추가. 온도는 32.6% 감소로 통과."
+          ] }
+        ] }
+      ],
+      "notes": "근거: 003-forecast.md, 003-model-comparison.md."
+    },
+    {
+      "eyebrow": "MOST SURPRISING",
+      "title": "검증에서 꼴찌였던 모델이 시험에서 1등이었다",
+      "badge": "GRU 변형별 씨앗 3개 평균",
+      "blocks": [
+        { "kind": "row", "cols": [
+          { "kind": "chart", "chartType": "col", "title": "검증 60분 CO₂ MAE (ppm)", "labels": ["시간표 포함", "시각·요일", "센서만"], "series": [{ "name": "검증", "values": [74.6, 73.7, 82.6] }], "highlight": 2, "min": 0, "h": 3.4 },
+          { "kind": "chart", "chartType": "col", "title": "시험 60분 CO₂ MAE (ppm)", "labels": ["시간표 포함", "시각·요일", "센서만"], "series": [{ "name": "시험", "values": [30.3, 32.2, 30.0] }], "highlight": 2, "min": 0, "h": 3.4 }
+        ] },
+        { "kind": "text", "size": 17, "lines": [
+          "검증 기간(개강 직후)이 시험 기간(연휴)보다 3배 더 출렁였다. 규칙대로 검증으로만 골라 1등을 놓쳤다.",
+          [["교훈: ", {"bold": true}], ["기간 하나로 고르면 운에 맡기는 것. 여러 기간으로 검증하고, 운영 중에 스스로 채점한다.", {"bold": true, "color": "ink"}]]
+        ] }
+      ],
+      "notes": "서비스는 60분 전 예측을 실제값으로 채점하는 monitor를 둔다."
+    },
+    {
+      "eyebrow": "TASK 4 · ANOMALY",
+      "title": "튀는 값은 다 잡고, 정상 범위에서 멈춘 값은 못 잡는다",
+      "badge": "합성 고장 35건",
+      "blocks": [
+        { "kind": "row", "widths": [3, 2], "cols": [
+          { "kind": "table", "colW": [2.2, 1, 2.6], "size": 15, "rows": [
+            ["고장 종류", "잡음", "이유"],
+            ["튄 값 · 냉방 정지", "16/16", "처음 보는 모양"],
+            ["영점 틀어짐", "6/8", "천천히 변해 늦게"],
+            ["습도 값 고정", "× 0/6", "정상도 몇 시간 멈춤"],
+            ["환기 정지", "× 0/3", "사람 많은 수업과 같음"]
+          ] },
+          { "kind": "text", "size": 16, "lines": [
+            [["결과", {"bold": true, "color": "ink"}]],
+            "탐지율 69% (기준 80%) · 헛경보 하루 0회 (기준 1회)",
+            [["그래서", {"bold": true, "color": "ink"}]],
+            "값만으로는 구별 불가. 같은 공간 옆 센서와 비교, 냉난방 장비(xflow) 데이터를 넣는다.",
+            "임계값은 검증 기간으로 고정. 시험에서 80%가 되는 값은 검증 헛경보가 하루 2.29회라 고를 수 없다."
+          ] }
+        ] }
+      ],
+      "notes": "근거: 004-anomaly.md, 004-detection.md."
+    },
+    {
+      "eyebrow": "TASK 5 · STATE",
+      "title": "환기 경보는 88%로 통과, 사용 여부는 빈 방 오판 0%",
+      "blocks": [
+        { "kind": "row", "cols": [
+          { "kind": "cards", "h": 2.4, "items": [
+            { "kicker": "환기 선제 경보", "title": "88.0%", "titleSize": 36, "body": ["30분 안 1,000 ppm을 미리 잡은 비율", "macro-F1 0.626 > 규칙 0.608"] },
+            { "kicker": "사용 여부", "title": "0%", "titleSize": 36, "body": ["빈 방을 '사용중'으로 본 비율", "대신 사용중 1,147칸을 놓침"] }
+          ] }
+        ] },
+        { "kind": "text", "size": 16, "lines": [
+          [["왜", {"bold": true, "color": "ink"}]],
+          "환기 경보 정밀도 16.5% → 같은 경보를 30분에 한 번만 보낸다. 회의실 재현율은 77.9%(회의가 쉬었다 다시 시작).",
+          "사용 여부 임계값(0.95)이 검증 기간에 맞춰져 매우 보수적이다. CO₂는 사람의 출입보다 늦게 따라온다.",
+          [["그래서", {"bold": true, "color": "ink"}]],
+          "'빈 방 오판 2% 이하에서 재현율 최대'로 임계값 기준을 바꾸고, 문 열림 · 소음 센서로 정답을 보강한다."
+        ] }
+      ],
+      "notes": "근거: 005-state.md, 005-classification.md, 직접 관찰 docs/observations/occupancy.csv."
+    },
+    {
+      "eyebrow": "TASK 6 · PRETRAINED",
+      "title": "Chronos는 학습 없이 기준선을 이기지만, 매분 쓰기엔 무겁다",
+      "badge": "정확도: 맥 · 시간/메모리: 보드 B CPU",
+      "blocks": [
+        { "kind": "table", "colW": [2.2, 1.2, 1.3, 1.3, 1.6], "size": 15, "rows": [
+          ["방법", "60분 MAE", "구간 적중", "1회 추론", "메모리"],
+          ["현재값 유지", "36.3", "-", "-", "-"],
+          ["Chronos-Bolt tiny", "33.3", "78%", "39 ms", "+213 MB"],
+          ["Chronos-Bolt small", "32.4", "77%", "139 ms (p95 299)", "약 +237 MB"],
+          ["직접 학습 GRU (ONNX)", "31.3", "-", "0.22 ms", "수백 KB"]
+        ] },
+        { "kind": "text", "size": 16, "lines": [
+          [["채택", {"bold": true, "color": "ink"}]],
+          "매분 예측은 GRU 유지 — 더 정확하고 600배 빠르며, 로컬 LLM과 나눠 쓸 메모리를 아낀다.",
+          "Chronos는 학습 데이터가 없는 새 공간의 첫 모델, 불확실성 구간(적중률 75~84%), 두 번째 의견으로 쓴다."
+        ] }
+      ],
+      "notes": "근거: 006-pretrained.md, 006-comparison.md."
+    },
+    {
+      "type": "section", "num": "03", "title": "Jetson에서 운영", "desc": "과제 7 · 8",
+      "notes": "과제 7·8."
+    },
+    {
+      "eyebrow": "TASK 7 · EDGE",
+      "title": "가장 빠른 것은 GPU가 아니라 ONNX CPU였다",
+      "badge": "보드 B · 워밍업 20 · 측정 200 · 클럭 고정 안 함",
+      "blocks": [
+        { "kind": "row", "widths": [3, 2], "cols": [
+          { "kind": "chart", "chartType": "bar", "title": "GRU 1회 예측 (ms, 배치 1 평균)", "labels": ["PyTorch CPU", "PyTorch GPU FP32", "PyTorch GPU FP16", "ONNX Runtime CPU"], "series": [{ "name": "ms", "values": [10.27, 0.87, 0.85, 0.22] }], "highlight": 3, "min": 0, "h": 3.8 },
+          { "kind": "table", "colW": [1.5, 1.3], "size": 15, "rows": [
+            ["방식", "CO₂ 최대 차이"],
+            ["GPU FP32", "0.01 ppm"],
+            ["GPU FP16", "× 1.02 ppm"],
+            ["ONNX CPU", "0.25 ppm"],
+            ["경보 바뀜", "0% (전 방식)"]
+          ] }
+        ] },
+        { "kind": "text", "size": 16, "lines": [
+          "모델이 6만 파라미터로 작아 GPU로 보내는 준비 시간이 계산보다 길다. FP16은 득 없이 오차만 커졌다. TensorRT는 보드에 미설치(sudo 필요).",
+          [["결론: ", {"bold": true}], ["운영은 ONNX CPU, GPU는 다음 주 로컬 LLM에 비워 둔다.", {"bold": true, "color": "ink"}]]
+        ] }
+      ],
+      "notes": "근거: 007-edge.md, 007-comparison.md."
+    },
+    {
+      "eyebrow": "TASK 8 · SERVICE",
+      "title": "보드 A가 매분 네 공간을 판단해 API와 MQTT로 내보낸다",
+      "blocks": [
+        { "kind": "row", "widths": [3, 2], "cols": [
+          { "kind": "code", "label": "조회 API (보드 A :8080) · 형식은 docs/interface.md", "size": 13, "lines": [
+            "GET /health",
+            "GET /v1/spaces",
+            ["GET /v1/spaces/<slug>/forecast?minutes=60", "amber"],
+            "GET /v1/spaces/<slug>/anomaly | /state | /alerts",
+            "GET /v1/alerts",
+            "",
+            ["MQTT aip/team5/jaeung/inference/<slug>/state", "teal"],
+            ["     (retained) · alerts · status(LWT)", "teal"]
+          ] },
+          { "kind": "table", "colW": [1.6, 1.6], "size": 15, "rows": [
+            ["확인 기준", "상태"],
+            ["12시간 무중단", "12:14 ~ 00:14 진행 중"],
+            ["10분 정지 경보", "시험 예정"],
+            ["조회 API", "통과"],
+            ["결과 형식 문서", "통과"]
+          ] }
+        ] },
+        { "kind": "text", "size": 16, "lines": ["매분: 수집 DB → 학습과 같은 전처리 → ONNX 예측 · 이상 점수 · 상태 판단 → 경보. 모델 파일을 바꾸면 서비스를 멈추지 않고 교체된다."] }
+      ],
+      "notes": "근거: 008-service.md, docs/interface.md. 12시간 기록은 00:14 이후 summary로 갱신."
+    },
+    {
+      "eyebrow": "OPERATIONS",
+      "title": "운영을 시작하자 실제 데이터에서만 보이는 문제가 나왔다",
+      "blocks": [
+        { "kind": "table", "colW": [0.9, 3.2, 3.2], "size": 15, "rows": [
+          ["시각", "무슨 일", "고친 방법"],
+          ["09:01", "켜자마자 꺼짐 (보드 A에 torch 없음)", "torch 없이 도는지 자동 시험 추가"],
+          ["09:49", "문 열림 센서를 '끊김'으로 오판", "CO₂ · 온도 · 습도 센서만 판정"],
+          ["10:5x", "최종 모델로 교체", "파일만 바꾸면 무중단 교체"],
+          ["12:14", "10분 정지에 경보가 안 나는 기준(15분)", "5분 안 '수집 끊김' 경보로 고치고 재시작"]
+        ] },
+        { "kind": "text", "size": 16, "lines": ["문 열림 센서는 문이 움직일 때만 신호를 보내서, 1분 센서와 같은 기준으로 보면 끊긴 것처럼 보였다. 서비스는 60분 전 예측을 실제값으로 스스로 채점한다."] }
+      ],
+      "notes": "근거: 008-service.md 사건 표."
+    },
+    {
+      "type": "closing",
+      "title": "정리와 다음 할 일",
+      "rows": [
+        ["수집", "두 보드 모두 커버율 95% 이상, 결측 원인 전부 설명"],
+        ["예측", "기준선보다 14%, 목표 30% 미달 → 센서 밖 정보"],
+        ["의외", "검증 꼴찌가 시험 1등 → 여러 기간 검증"],
+        ["탐지", "멈춘 값은 옆 센서 비교로"],
+        ["엣지", "ONNX CPU 0.22 ms, GPU보다 빠름"],
+        ["운영", "보드 A 매분 판단, API · MQTT · 대시보드"]
+      ],
+      "notes": "정리."
+    }
+  ]
+}

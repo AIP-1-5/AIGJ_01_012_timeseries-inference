@@ -17,7 +17,7 @@ import pandas as pd
 
 from anomaly import rules as rule_module
 from anomaly.data import METRICS, space_frames
-from anomaly.model import TAIL, window_features
+from anomaly.features import TAIL, window_features
 from forecast.dataset import space_arrays
 from forecast.features import calendar_features
 from pipeline.loader import from_collector_db

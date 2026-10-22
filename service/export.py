@@ -12,8 +12,6 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-import torch
-
 from pipeline.baselines import git_commit
 
 
@@ -23,6 +21,7 @@ def sha256(path):
 
 def export(root, out_dir, run=None):
     """run을 주면 select 전이라도 그 실행으로 묶는다 (중간 배포용). 오토인코더·분류기는 있으면 넣는다."""
+    import torch                       # 보드 B에서만 부른다. 보드 A 서비스는 sha256만 쓰고 torch가 없다
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest = {"created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "code_commit": git_commit(root), "files": {}}

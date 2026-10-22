@@ -300,6 +300,7 @@ def test_service_runs_without_torch():
             "        if name == 'torch' or name.startswith('torch.'):\n"
             "            raise ImportError('torch blocked')\n"
             "sys.meta_path.insert(0, Block())\n"
-            "import service.engine, service.__main__\n")
+            "import service.engine, service.__main__, service.export\n"
+            "from service.__main__ import ModelWatcher\n")
     done = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
     assert done.returncode == 0, done.stderr

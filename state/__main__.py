@@ -281,6 +281,10 @@ def main(argv=None):
     parser.add_argument("command", choices=["run"])
     parser.add_argument("--config-dir", default="config")
     args = parser.parse_args(argv)
+    from pipeline.guard import refuse_training_on_board
+
+    if refuse_training_on_board("과제 5 분류기"):
+        return 2
     return run(Path(args.config_dir))
 
 

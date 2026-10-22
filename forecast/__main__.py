@@ -29,6 +29,10 @@ def cmd_samples(args, fs):
 
 
 def cmd_train(args, fs):
+    from pipeline.guard import refuse_training_on_board
+
+    if refuse_training_on_board("과제 3 예측"):
+        return 2
     from .dataset import samples_for
     from .train import train_run
 

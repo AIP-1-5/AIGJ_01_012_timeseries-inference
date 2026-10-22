@@ -13,7 +13,8 @@ from datetime import timedelta
 
 from .timeutil import from_iso, to_iso
 
-COVERAGE_EXCLUDE_METRICS = {"battery"}   # 배터리는 같은 메시지에 딸려 오므로 커버율 표 대신 값만 보여 준다
+# 커버율은 과제의 측정 항목만 본다. 배터리는 값만 보여 주고, 그 밖의 항목(TVOC·기압·조도·소음 등)은 대시보드용으로만 저장한다
+COVERAGE_METRICS = {"co2", "temperature", "humidity"}
 LOW_BATTERY_PERCENT = 10
 STALE_MIN = timedelta(minutes=5)
 STALE_INTERVAL_FACTOR = 3
@@ -164,6 +165,8 @@ def _parse_rows(rows):
         if row["metric"] == "battery":
             battery[device] = row["value"]
             continue
+        if row["metric"] not in COVERAGE_METRICS:
+            continue
         by_series[(device, row["metric"])].append(measured)
         by_device[device].append((measured, row["fcnt"]))
         meta[(device, row["metric"])] = (row["device_profile"], row["space"], row["spot"])
@@ -185,7 +188,7 @@ def compute_coverage(store, intervals, start, end, now, excluded=()):
     recent = to_iso(end - timedelta(days=RECENT_SERIES_DAYS))
     last_seen = {}
     for key in store.series_keys():
-        if key["metric"] in COVERAGE_EXCLUDE_METRICS or key["last_measured"] < recent:
+        if key["metric"] not in COVERAGE_METRICS or key["last_measured"] < recent:
             continue
         series_key = (key["device_id"], key["metric"])
         last_seen[series_key] = from_iso(key["last_measured"])

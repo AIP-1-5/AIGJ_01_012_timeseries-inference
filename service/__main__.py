@@ -114,7 +114,7 @@ class Publisher:
 
 # ---------- HTTP 조회 API ----------
 
-def make_handler(state, stale_after):
+def make_handler(state, stale_after, sensors=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             log.debug("http " + fmt, *args)
@@ -139,6 +139,18 @@ def make_handler(state, stale_after):
                 self.end_headers()
                 self.wfile.write(data)
                 return
+            if parts == ["v1", "sensors"]:
+                if sensors is None:
+                    return self.send(503, {"error": "센서 조회가 꺼져 있음"})
+                try:
+                    data = sensors.get()
+                except Exception as exc:                           # noqa: BLE001 — DB를 못 읽어도 다른 API는 계속
+                    log.exception("sensors failed")
+                    return self.send(503, {"error": f"센서 조회 실패: {type(exc).__name__}"})
+                want = parse_qs(url.query).get("space", [None])[0]
+                if want:
+                    data = {**data, "spaces": [g for g in data["spaces"] if want in (g["space"], g["slug"])]}
+                return self.send(200, data)
             latest, error, ok_at = state.snapshot()
             age = None if ok_at is None else round(time.time() - ok_at, 1)
             if parts == ["health"]:
@@ -183,7 +195,7 @@ def make_handler(state, stale_after):
                 return self.send(200, {"generated_at": latest["generated_at"], "active": active, "recent": recent})
             return self.send(404, {"error": "없는 주소", "routes": ["/health", "/v1/spaces", "/v1/spaces/<slug>",
                                                                   "/v1/spaces/<slug>/forecast?minutes=60", "/v1/spaces/<slug>/anomaly",
-                                                                  "/v1/spaces/<slug>/state", "/v1/alerts"]})
+                                                                  "/v1/spaces/<slug>/state", "/v1/alerts", "/v1/sensors?space=<slug>"]})
 
     return Handler
 
@@ -305,8 +317,13 @@ def cmd_run(root, cfg, args):
             publisher = Publisher(cfg["mqtt"], collector_cfg.broker)
         except Exception:                                          # noqa: BLE001 — MQTT 없이도 API는 동작
             log.exception("mqtt disabled")
+    from service.sensors import SensorReader
+
+    sensor_cfg = {"stale_factor": cfg["data"].get("stale_factor", 3), "stale_min_minutes": cfg["data"].get("stale_min_minutes", 5),
+                  **cfg.get("sensors", {})}
+    sensors = SensorReader(engine.db, collector_cfg.intervals, [(s.space, s.slug) for s in engine.settings.spaces], sensor_cfg)
     host, port = cfg["http"].get("host", "0.0.0.0"), int(args.port or cfg["http"].get("port", 8080))
-    server = ThreadingHTTPServer((host, port), make_handler(state, stale_after=3 * period))
+    server = ThreadingHTTPServer((host, port), make_handler(state, stale_after=3 * period, sensors=sensors))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     log.info("http on %s:%s, models %s", host, port, engine.models.manifest.get("forecast_run"))
 

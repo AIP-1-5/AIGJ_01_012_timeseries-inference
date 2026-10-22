@@ -9,6 +9,12 @@ stale_min_minutes = 5                # 1분 센서는 5분, 2분 센서는 6분,
 collector_silent_minutes = 5         # 모든 센서가 이만큼 조용하면 '수집 전체 끊김' (수집기 10분 정지 시험이 5분 안에 경보)
 forecast_fresh_minutes = 15          # 최근 값이 이보다 오래되면 예측을 비운다 (10분 센서 + 10분 유지까지 허용)
 
+[sensors]                            # 대시보드 '센서 실측' 탭 (/v1/sensors), 모델 계산과 따로
+history_minutes = 180                # 작은 그래프에 보여 줄 최근 길이
+bucket_minutes = 5
+cache_seconds = 5                    # 이 시간 안의 요청은 DB를 다시 읽지 않는다 (화면에서 1초를 골라도 DB는 5초에 한 번)
+event_profiles = ["WS301"]           # 사건이 있을 때만 보내는 센서 (끊김 판정 안 함)
+
 [models]
 dir = "data/models"                  # export로 만든 모델 (커밋 안 함). 보드 B에서 만들어 보드 A로 복사
 

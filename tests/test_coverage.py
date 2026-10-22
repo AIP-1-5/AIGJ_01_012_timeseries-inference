@@ -113,6 +113,14 @@ def test_compute_coverage_end_to_end(store):
     assert result.delay_median_seconds == pytest.approx(2.0)
 
 
+def test_coverage_counts_only_task_metrics(store):
+    for i in range(60):
+        t = T0 + i * MIN
+        store.insert_message([row("A", "co2", t, i, profile="AM107"), row("A", "tvoc", t, i, profile="AM107")])
+    result = compute_coverage(store, IntervalConfig(default=1), T0, T0 + 60 * MIN, now=T0 + 60 * MIN)
+    assert [(s.device_id, s.metric) for s in result.series] == [("A", "co2")]   # TVOC 등은 대시보드용
+
+
 def test_report_after_period_end_is_not_stale(store):
     for i in range(60):
         store.insert_message([row("A", "temperature", T0 + i * MIN, i)])

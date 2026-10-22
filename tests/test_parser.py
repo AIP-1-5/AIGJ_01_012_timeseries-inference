@@ -49,8 +49,9 @@ def test_skewed_gateway_uses_earliest_ns_time(source, fixture_bytes):
     # time(게이트웨이 시계)은 5분 빠르지만 기준 시각은 가장 이른 nsTime
     assert row.measured_at == "2026-10-21T00:31:25.297Z"
     assert row.gw_time == "2026-10-21T00:36:20.731Z"
-    # include에 없는 pressure는 저장하지 않는다
-    assert "pressure" not in {r.metric for r in result.rows}
+    # 숫자 항목은 모두 저장한다 (기압은 대시보드용, 단위는 설정에서)
+    pressure = [r for r in result.rows if r.metric == "pressure"]
+    assert pressure and pressure[0].unit == "hPa"
 
 
 def test_zero_and_negative_values_are_kept(source):
@@ -66,10 +67,10 @@ def test_missing_ns_time_falls_back_to_received_and_builds_key(source):
     assert row.message_key == "d1:42:2026-10-21T00:31"
 
 
-def test_non_numeric_included_metric_is_rejected(source):
-    payload = b'{"deviceInfo":{"devEui":"d1","tags":{"location":"L"}},"object":{"co2":"high","humidity":40}}'
+def test_non_numeric_known_metric_is_rejected(source):
+    payload = b'{"deviceInfo":{"devEui":"d1","tags":{"location":"L"}},"object":{"co2":"high","humidity":40,"magnet_status":"open"}}'
     result = parse_message(TOPIC, payload, source, RECEIVED)
-    assert result.rejects == ["non_numeric:co2"]
+    assert result.rejects == ["non_numeric:co2"]          # 단위를 아는 항목만 형식 변경으로 본다
     assert [r.metric for r in result.rows] == ["humidity"]
 
 

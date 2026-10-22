@@ -104,12 +104,13 @@ flowchart LR
 
 | 경로 | 내용 |
 |---|---|
-| `GET /` | 대시보드 (네 공간 2×2, 60분 예측 그래프) |
+| `GET /` | 대시보드 — **모델 판단** 탭(네 공간 2×2, 60분 예측) · **센서 실측** 탭(`/#sensors`, 센서별 실측값과 3시간 큰 그래프) |
 | `GET /health` | 서비스 상태, 주기 수, 실패 수, 모델 이름 |
 | `GET /v1/spaces` | 모든 공간의 현재 판단 |
 | `GET /v1/spaces/<slug>/forecast?minutes=60` | 5~60분 예측 |
 | `GET /v1/spaces/<slug>/anomaly` · `/state` · `/alerts` | 이상 · 사용 여부 · 환기 · 경보 |
 | `GET /v1/alerts` | 전체 경보 |
+| `GET /v1/sensors?space=<slug>` | 센서별 실측값 (CO₂·온도·습도·배터리·TVOC·기압·조도·소음…)과 최근 3시간 |
 | MQTT `aip/team5/jaeung/inference/<slug>/state` | 공간 상태 (retained) · `alerts` · `status`(LWT) |
 
 - **무중단 모델 교체** — 모델 파일만 바꾸면 다음 주기에 새 모델을 쓴다 (manifest 해시 감시).

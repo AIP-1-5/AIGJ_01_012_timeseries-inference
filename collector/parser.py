@@ -126,7 +126,7 @@ def parse_message(topic, payload, source, received_at):
         if include and metric not in include:
             continue
         if not _is_number(value):
-            if include:
+            if include or metric in source.units:   # 단위를 아는 항목이 숫자가 아니면 형식이 바뀐 것 (문 열림 같은 문자 항목은 조용히 건너뜀)
                 result.rejects.append(f"non_numeric:{metric}")
             continue
         result.rows.append(MeasurementRow(

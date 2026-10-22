@@ -35,19 +35,38 @@ mosquitto_sub -h data.withio.net -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" -t 'aip
 
 | 경로 | 설명 |
 | --- | --- |
-| `GET /` | 사람이 보는 대시보드 화면 (공간별 CO₂·온도, 60분 예측선, 사용 여부, 경보. 30초마다 갱신) |
+| `GET /` | 사람이 보는 대시보드. 탭 두 개: **모델 판단**(공간별 CO₂·온도, 60분 예측선, 사용 여부, 경보)과 **센서 실측**(`/#sensors`, 센서별 실측값과 최근 3시간 그래프). 새로고침 간격 1초~30분 선택, 기본 10초 |
 | `GET /health` | 서비스 상태. 200 = 마지막 성공 주기가 180초 안, 503 = 멈춤·실패 중 (`last_error` 포함) |
 | `GET /v1/spaces` | 모든 공간 결과 (`spaces`: 공간 객체 목록, `stale`: 결과가 180초보다 오래됨) |
 | `GET /v1/spaces/<slug>` | 한 공간 결과 (§4) |
 | `GET /v1/spaces/<slug>/forecast?minutes=30` | N분 뒤 예측값. N은 5~60, 5의 배수 (아니면 400). 생략하면 12개 시점 전체 |
 | `GET /v1/spaces/<slug>/anomaly` · `/state` · `/alerts` | 공간 객체의 해당 부분만 |
 | `GET /v1/alerts` | `active`: 지금 켜진 경보 전체, `recent`: 최근 발송 기록(최대 100건) |
+| `GET /v1/sensors?space=<slug 또는 이름>` | 센서 실측값 (§3.1). 모델 계산과 따로, 첫 계산 전에도 응답한다 |
 
 없는 공간은 404, 첫 계산 전에는 503을 돌려준다. 예: "회의실 30분 뒤 CO₂는?"
 
 ```bash
 $ curl -s 'http://100.113.228.46:8080/v1/spaces/meeting/forecast?minutes=30'
 {"space": "회의실", "slot": "2026-10-22T05:00:00Z", "minutes": 30, "co2": 812.4, "temperature": 23.1, "unavailable": null}
+```
+
+### 3.1 센서 실측값 `/v1/sensors`
+
+수집기 DB를 읽기 전용으로 읽어, 센서마다 항목별 마지막 값과 최근 3시간 그래프용 값을 돌려준다. 결과는 5초 동안 재사용한다(요청이 많아도 DB를 다시 읽지 않음).
+
+| 필드 | 뜻 |
+| --- | --- |
+| `history` | 그래프 칸 정보: `start`(첫 칸 시작), `bucket_minutes`(5), `buckets`(칸 수), `metrics`(`co2`·`temperature`·`humidity`) |
+| `spaces[]` | 공간별 묶음: `space`, `slug`(모델이 쓰는 공간만, 아니면 `null`), `total`(센서 수), `stale`(끊긴 센서 수), `sensors[]` |
+| `sensors[].metrics` | 항목별 `{value, unit, at}`. CO₂·온도·습도·배터리, 센서에 따라 TVOC·기압·조도·소음 등 (숫자 항목은 모두) |
+| `sensors[].history` | 항목별 5분 칸 평균 목록 (`null` = 그 칸에 값 없음, 10분 센서는 한 칸씩 빈다) |
+| `sensors[].kind` · `stale` | `periodic`이면 기대 간격 × 3(최소 5분)보다 오래 조용할 때 `stale: true`. 문 열림처럼 사건이 있을 때만 보내는 센서는 `event`, `stale: null` |
+| `sensors[].last_seen` · `age_minutes` | 마지막 수신 시각과 지난 분 |
+
+```bash
+$ curl -s 'http://100.113.228.46:8080/v1/sensors?space=lab' | jq '.spaces[0].sensors[0] | {spot, profile, stale, co2: .metrics.co2.value}'
+{"spot": "후면 오른쪽", "profile": "AM107", "stale": false, "co2": 525}
 ```
 
 ## 4. 공간 객체 (MQTT `<slug>/state`와 API `/v1/spaces/<slug>`에서 같은 형식)

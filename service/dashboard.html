@@ -46,6 +46,48 @@
   .alerts div::before { content: "● "; }
   .empty { color: var(--muted); font-size: 20px; align-self: center; }
   footer { font-size: 15px; }
+  /* 탭 */
+  .tabs { display: flex; gap: 8px; }
+  .tab { font: inherit; font-size: 18px; padding: 6px 18px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .view[hidden] { display: none; }
+  /* 센서 실측 */
+  #sensors { display: flex; flex-direction: column; gap: 22px; }
+  .space-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0 0 10px; }
+  .space-head h2 { font-size: 26px; margin: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .tile.stale { border-color: var(--bad); border-width: 2px; }
+  .tile-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .tile-head b { font-size: 18px; }
+  .tile-head .sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { white-space: nowrap; flex-shrink: 0; }
+  .dot::before { content: "● "; }
+  .vals { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
+  .val .n { font-size: 34px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .val .u { font-size: 14px; color: var(--muted); margin-left: 3px; }
+  .val .k { display: block; font-size: 13px; color: var(--muted); }
+  .val.small .n { font-size: 24px; }
+  .extra { display: flex; flex-wrap: wrap; gap: 6px; }
+  .extra .chip { font-size: 15px; padding: 2px 10px; }
+  .spark { width: 100%; height: 84px; display: block; }
+  /* 공간별 큰 그래프 (센서 여러 대를 한 그래프에) */
+  .bigchart { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px 12px; margin-bottom: 14px; }
+  .bigchart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 8px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { font: inherit; font-size: 16px; padding: 4px 14px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--band); color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .plot { position: relative; height: clamp(220px, 32vh, 340px); }
+  .plot svg { position: absolute; left: 56px; top: 8px; width: calc(100% - 64px); height: calc(100% - 34px); overflow: visible; }
+  .plot .ylab { position: absolute; left: 0; width: 50px; text-align: right; font-size: 14px; color: var(--muted); transform: translateY(-50%); font-variant-numeric: tabular-nums; }
+  .plot .xlab { position: absolute; bottom: 2px; font-size: 14px; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; margin-top: 6px; }
+  .legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+  .spark-label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+  @keyframes flash { from { background: color-mix(in srgb, var(--accent) 28%, transparent); } to { background: transparent; } }
+  .flash { animation: flash 1.6s ease-out; border-radius: 6px; }
+  @media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
+  .notice { background: var(--card); border: 1px dashed var(--line); border-radius: 14px; padding: 24px; font-size: 19px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -53,9 +95,24 @@
   <h1>교육장 공기 상태</h1>
   <span id="meta" class="muted">불러오는 중…</span>
   <span id="health" class="pill">-</span>
+  <label class="muted" style="margin-left:auto;font-size:16px;display:flex;align-items:center;gap:6px">새로고침
+    <select id="interval" style="font:inherit;font-size:16px;padding:4px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink)">
+      <option value="1">1초</option><option value="10">10초</option><option value="30">30초</option>
+      <option value="60">1분</option><option value="600">10분</option><option value="1800">30분</option>
+    </select></label>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-model" aria-selected="true" data-view="model">모델 판단</button>
+    <button class="tab" role="tab" id="tab-sensors" aria-selected="false" data-view="sensors">센서 실측</button>
+  </nav>
 </header>
-<div id="spaces" class="grid"></div>
-<footer class="muted">매분 계산 · 5분 칸 기준 · 그래프는 지금부터 60분 CO₂ 예측 (빨간 점선 = 1,000 ppm) · 30초마다 새로고침 · 원본 <code>/v1/spaces</code></footer>
+<section id="view-model" class="view" role="tabpanel" aria-labelledby="tab-model" style="display:contents">
+  <div id="spaces" class="grid"></div>
+  <footer class="muted">매분 계산 · 5분 칸 기준 · 그래프는 지금부터 60분 CO₂ 예측 (빨간 점선 = 1,000 ppm) · 값은 5분 칸마다 바뀜 · 원본 <code>/v1/spaces</code></footer>
+</section>
+<section id="view-sensors" class="view" role="tabpanel" aria-labelledby="tab-sensors" hidden>
+  <div id="sensors"><div class="notice">불러오는 중…</div></div>
+  <footer class="muted" style="margin-top:16px">센서가 보낸 값 그대로 · 작은 그래프는 최근 3시간 5분 평균 · 빨간 테두리 = 끊김 · 센서는 1~10분마다 값을 보냄 · 원본 <code>/v1/sensors</code></footer>
+</section>
 <script>
 const fmt = (v, d = 0) => v == null || Number.isNaN(Number(v)) ? "–" : Number(v).toFixed(d);
 const kst = iso => iso ? new Date(iso).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" }) : "–";
@@ -101,9 +158,9 @@ function card(s) {
     <div class="head"><h2>${s.space}</h2><span class="muted">센서 ${alive}/${s.sensors.total} · 마지막 ${kst(s.sensors.last_seen)}</span></div>
     <div class="body">
     <div class="nums">
-      <div><div class="label">CO₂ ppm</div><div class="big ${co2cls}">${co2 ? fmt(co2.now) : "–"}</div>
+      <div><div class="label">CO₂ ppm</div><div class="big ${co2cls}" ${co2 ? `data-k="${s.slug}:co2" data-v="${co2.now}" data-d="0"` : ""}>${co2 ? fmt(co2.now) : "–"}</div>
         <div class="then">60분 뒤 <b>${fmt(co2then)}</b> ${arrow(co2 && co2.now, co2then)}</div></div>
-      <div><div class="label">온도 ℃</div><div class="mid">${t ? fmt(t.now, 1) : "–"}</div>
+      <div><div class="label">온도 ℃</div><div class="mid" ${t ? `data-k="${s.slug}:temperature" data-v="${t.now}" data-d="1"` : ""}>${t ? fmt(t.now, 1) : "–"}</div>
         <div class="then">60분 뒤 <b>${fmt(tthen, 1)}</b> ${arrow(t && t.now, tthen)}</div></div>
     </div>
     ${chart(co2)}
@@ -127,13 +184,227 @@ async function refresh() {
     const data = await res.json();
     document.getElementById("meta").textContent =
       `기준 ${kst(data.slot)} · 계산 ${kst(data.generated_at)} · 모델 ${(h.models || {}).forecast || "-"}`;
-    document.getElementById("spaces").innerHTML = data.spaces.map(card).join("");
+    smooth(() => patch(document.getElementById("spaces"), data.spaces.map(sp => ({ key: sp.slug, html: card(sp) }))));
   } catch (e) {
     document.getElementById("meta").textContent = "서비스에 연결할 수 없음";
   }
 }
+// ---------- 센서 실측 ----------
+const LABELS = {
+  co2: ["CO₂", "ppm", 0], temperature: ["온도", "℃", 1], humidity: ["습도", "%", 0], battery: ["배터리", "%", 0],
+  tvoc: ["TVOC", "ppb", 0], pressure: ["기압", "hPa", 1], illumination: ["조도", "lux", 0], light_level: ["조도 단계", "", 0],
+  LAeq: ["소음 평균", "dB", 1], LAI: ["소음", "dB", 1], LAImax: ["최대 소음", "dB", 1], la: ["소음", "dB", 1], laeq: ["소음 평균", "dB", 1], lamax: ["최대 소음", "dB", 1],
+  activity: ["움직임", "", 0], pir: ["움직임", "", 0], infrared: ["적외선", "", 0], infrared_and_visible: ["가시광+적외선", "", 0],
+};
+const MAIN = ["co2", "temperature", "humidity"];
+const label = k => LABELS[k] || [k, "", 2];
+const ago = m => m == null ? "–" : m < 1 ? `${Math.max(0, Math.round(m * 60))}초 전` : m < 60 ? `${Math.round(m)}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`;
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const PALETTE = ["#2b6cb0", "#dd6b20", "#2f855a", "#805ad5", "#d53f8c", "#319795", "#718096"];
+let sensorData = null, lastSensorText = null;
+const spaceMetric = {};                       // 공간별로 큰 그래프에 보여 줄 항목 (버튼으로 바꿈)
+
+function niceRange(vs, metric) {
+  let lo = Math.min(...vs), hi = Math.max(...vs);
+  const minSpan = metric === "co2" ? 100 : metric === "temperature" ? 2 : 6;
+  if (hi - lo < minSpan) { const mid = (hi + lo) / 2; lo = mid - minSpan / 2; hi = mid + minSpan / 2; }
+  const pad = (hi - lo) * 0.08;
+  return [lo - pad, hi + pad];
+}
+
+// series: [{name, color, values}] — values는 5분 칸 평균 (null = 빈 칸)
+function plot(series, metric, opts = {}) {
+  const all = series.flatMap(s => s.values.filter(v => v != null));
+  if (all.length < 2) return `<div class="plot" style="display:grid;place-items:center"><span class="muted">그래프로 그릴 값이 아직 부족함</span></div>`;
+  const n = Math.max(...series.map(s => s.values.length)) - 1;
+  const [lo, hi] = niceRange(metric === "co2" && opts.limit ? [...all, Math.min(Math.max(...all) + 50, 1000)] : all, metric);
+  const H = 100, x = i => (i / n) * 100, y = v => H - ((v - lo) / (hi - lo)) * H;
+  const [, unit, dec] = label(metric);
+  const paths = series.map(s => {
+    // 빈 칸이 3칸(15분) 이하면 이어 그린다 (10분 간격 센서는 5분 칸이 하나씩 빈다). 더 길면 끊어서 끊김이 보이게
+    let d = "", lastI = null;
+    s.values.forEach((v, i) => { if (v == null) return; d += `${lastI !== null && i - lastI <= 4 ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)} `; lastI = i; });
+    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${opts.thin ? 2 : 2.6}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  }).join("");
+  const ticks = [lo, (lo + hi) / 2, hi];
+  const grid = ticks.map(t => `<line x1="0" x2="100" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join("");
+  const limit = metric === "co2" && 1000 > lo && 1000 < hi
+    ? `<line x1="0" x2="100" y1="${y(1000)}" y2="${y(1000)}" stroke="var(--bad)" stroke-dasharray="4 4" stroke-width="1.5" vector-effect="non-scaling-stroke"/>` : "";
+  const top = v => `calc(8px + (100% - 34px) * ${y(v) / H})`;
+  const left = f => `calc(56px + (100% - 64px) * ${f})`;
+  const hours = opts.minutes / 60, xl = [];
+  for (let h = hours; h >= 0; h -= 1) if (!opts.compact || h === hours || h === 0) xl.push([1 - h / hours, h === 0 ? "지금" : `${h}시간 전`]);
+  return `<div class="plot" ${opts.height ? `style="height:${opts.height}px"` : ""}>
+    <svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-label="${label(metric)[0]} 최근 ${hours}시간">${grid}${limit}${paths}</svg>
+    ${ticks.map(t => `<span class="ylab" style="top:${top(t)}">${fmt(t, metric === "co2" ? 0 : dec)}</span>`).join("")}
+    ${limit ? `<span class="ylab bad" style="top:${top(1000)}">1000</span>` : ""}
+    ${xl.map(([f, t]) => `<span class="xlab" style="left:${left(f)};${f === 0 ? "transform:none" : f === 1 ? "transform:translateX(-100%)" : ""}">${t}</span>`).join("")}
+  </div>`;
+}
+
+function spaceChart(g, minutes) {
+  const available = MAIN.filter(k => g.sensors.some(d => (d.history || {})[k]));
+  if (!available.length) return "";
+  const metric = available.includes(spaceMetric[g.space]) ? spaceMetric[g.space] : available[0];
+  const series = g.sensors.filter(d => (d.history || {})[metric])
+    .map((d, i) => ({ name: d.spot || d.device_id, color: PALETTE[i % PALETTE.length], values: d.history[metric] }));
+  const last = series.map(s => [...s.values].reverse().find(v => v != null)).filter(v => v != null);
+  const [name, unit, dec] = label(metric);
+  return `<div class="bigchart">
+    <div class="bigchart-head"><b style="font-size:19px">${name}${unit ? ` (${unit})` : ""} · 최근 ${minutes / 60}시간 ${last.length ? `<span class="muted" style="font-weight:400">지금 ${fmt(Math.min(...last), dec)}${last.length > 1 ? `~${fmt(Math.max(...last), dec)}` : ""} ${unit}</span>` : ""}</b>
+      <div class="seg" role="group" aria-label="그래프 항목">${available.map(k => `<button aria-pressed="${k === metric}" data-space="${esc(g.space)}" data-metric="${k}">${label(k)[0]}</button>`).join("")}</div></div>
+    ${plot(series, metric, { minutes, limit: true })}
+    <div class="legend">${series.map(s => `<span style="--c:${s.color}">${esc(s.name)}</span>`).join("")}</div>
+  </div>`;
+}
+
+function spark(values, metric) {
+  if (!values || values.filter(v => v != null).length < 2) return "";
+  return `<div class="label" style="font-size:13px">${label(metric)[0]} ${label(metric)[1]}</div>` +
+    plot([{ name: "", color: "var(--accent)", values }], metric, { minutes: 180, height: 120, thin: true, compact: true });
+}
+
+function valueBox(metric, m, small, device) {
+  const [name, unit, dec] = label(metric);
+  const cls = metric === "co2" ? (m.value >= 1000 ? "bad" : m.value >= 800 ? "warn" : "ok") : "";
+  return `<div class="val ${small ? "small" : ""}"><span class="k">${name}</span><span class="n ${cls}" data-k="${esc(device)}:${metric}" data-v="${m.value}" data-d="${dec}">${fmt(m.value, dec)}</span><span class="u">${unit}</span></div>`;
+}
+
+function tile(d) {
+  const ms = d.metrics || {};
+  const main = MAIN.filter(k => ms[k]);
+  const rest = Object.keys(ms).filter(k => !MAIN.includes(k)).sort((a, b) => (a === "battery") - (b === "battery") || a.localeCompare(b));
+  const age = `<span class="age" data-since="${esc(d.last_seen)}"></span>`;
+  const status = d.kind === "event" ? `<span class="muted dot">사건형 · ${age}</span>`
+    : d.stale ? `<span class="bad dot">끊김 · ${age}</span>` : `<span class="ok dot">${age}</span>`;
+  const extra = rest.map(k => {
+    const [name, unit, dec] = label(k), v = ms[k].value;
+    const warn = k === "battery" && v <= 20 ? "bad" : "";
+    return `<span class="chip ${warn}">${name} ${fmt(v, dec)}${unit ? " " + unit : ""}</span>`;
+  }).join("");
+  const sparkMetric = ["co2", "temperature", "humidity"].find(k => (d.history || {})[k]);
+  return `<article class="tile ${d.stale ? "stale" : ""}" aria-label="${esc(d.spot || d.device_id)}">
+    <div class="tile-head"><div style="min-width:0"><b>${esc(d.spot || "위치 없음")}</b><div class="sub">${esc(d.profile || "")} · ${esc(d.device_id)}</div></div>${status}</div>
+    ${main.length ? `<div class="vals">${main.map((k, i) => valueBox(k, ms[k], i > 0, d.device_id)).join("")}</div>` : ""}
+    ${extra ? `<div class="extra">${extra}</div>` : ""}
+    ${sparkMetric ? spark(d.history[sparkMetric], sparkMetric) : ""}
+  </article>`;
+}
+
+async function refreshSensors() {
+  const box = document.getElementById("sensors");
+  try {
+    const res = await fetch("/v1/sensors");
+    if (res.status === 404) { box.innerHTML = `<div class="notice">센서 실측 화면은 서비스를 새 버전으로 다시 시작한 뒤에 보입니다.</div>`; return; }
+    if (!res.ok) { box.innerHTML = `<div class="notice">센서 값을 읽지 못했습니다 (${res.status}).</div>`; return; }
+    const text = await res.text();
+    if (text === lastSensorText) return;          // 서버가 같은 값을 주면(5초 재사용) 화면을 건드리지 않는다
+    lastSensorText = text;
+    sensorData = JSON.parse(text);
+    renderSensors();
+  } catch (e) {
+    box.innerHTML = `<div class="notice">서비스에 연결할 수 없음</div>`;
+  }
+}
+
+// ---------- 부드러운 갱신: 바뀐 조각만 바꾸고, 바뀐 숫자는 이전 값에서 굴러가듯 ----------
+function patch(box, items) {
+  const old = new Map([...box.children].filter(e => e.dataset.key).map(e => [e.dataset.key, e]));
+  [...box.children].forEach(e => { if (!e.dataset.key) e.remove(); });
+  let prev = null;
+  for (const { key, html } of items) {
+    let el = old.get(key);
+    if (!el || el.dataset.html !== html) {
+      const t = document.createElement("template");
+      t.innerHTML = html.trim();
+      const node = t.content.firstElementChild;
+      node.dataset.key = key;
+      node.dataset.html = html;
+      if (el) el.replaceWith(node);
+      el = node;
+    }
+    old.delete(key);
+    const want = prev ? prev.nextElementSibling : box.firstElementChild;
+    if (want !== el) box.insertBefore(el, want);
+    prev = el;
+  }
+  old.forEach(e => e.remove());
+}
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function smooth(update) {
+  const before = new Map([...document.querySelectorAll("[data-k]")].map(e => [e.dataset.k, Number(e.dataset.v)]));
+  update();
+  for (const el of document.querySelectorAll("[data-k]")) {
+    const from = before.get(el.dataset.k), to = Number(el.dataset.v), dec = Number(el.dataset.d) || 0;
+    if (from === undefined || Number.isNaN(from) || from.toFixed(dec) === to.toFixed(dec) || el.dataset.animating) continue;
+    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+    if (reduceMotion) continue;
+    el.dataset.animating = "1";
+    const t0 = performance.now();
+    const step = now => {
+      const p = Math.min(1, (now - t0) / 700), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(from + (to - from) * e, dec);
+      if (p < 1) requestAnimationFrame(step); else delete el.dataset.animating;
+    };
+    requestAnimationFrame(step);
+  }
+  tick();
+}
+
+function tick() {      // 'N초 전'은 브라우저가 1초마다 세어 올린다 (보드 부하 없음)
+  for (const el of document.querySelectorAll(".age[data-since]")) el.textContent = ago((Date.now() - Date.parse(el.dataset.since)) / 60000);
+}
+
+function renderSensors() {
+  const box = document.getElementById("sensors"), data = sensorData;
+  const minutes = Math.round((data.history.buckets - 1) * data.history.bucket_minutes / 60) * 60 || 180;
+  if (!data.spaces.length) { box.innerHTML = `<div class="notice">최근 들어온 센서 값이 없습니다.</div>`; return; }
+  smooth(() => {
+    patch(box, data.spaces.map(g => ({ key: g.space, html: `<section aria-label="${esc(g.space)}">
+      <div class="space-head"><h2>${esc(g.space)}</h2><span class="muted">센서 ${g.total - g.stale}/${g.total} 수신 중${g.stale ? ` · <span class="bad">끊김 ${g.stale}</span>` : ""}</span></div>
+      <div class="chart-slot"></div><div class="tiles"></div></section>` })));
+    for (const g of data.spaces) {
+      const sec = [...box.children].find(e => e.dataset.key === g.space);
+      const chart = spaceChart(g, minutes);
+      patch(sec.querySelector(".chart-slot"), chart ? [{ key: "chart", html: chart }] : []);
+      patch(sec.querySelector(".tiles"), g.sensors.map(d => ({ key: d.device_id, html: tile(d) })));
+    }
+  });
+}
+document.getElementById("sensors").addEventListener("click", e => {
+  const b = e.target.closest("button[data-metric]");
+  if (b && sensorData) { spaceMetric[b.dataset.space] = b.dataset.metric; renderSensors(); }
+});
+
+// ---------- 탭 ----------
+function show(view) {
+  for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-selected", String(b.dataset.view === view));
+  document.getElementById("view-model").hidden = view !== "model";
+  document.getElementById("view-model").style.display = view === "model" ? "contents" : "none";
+  document.getElementById("view-sensors").hidden = view !== "sensors";
+  if (location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
+  if (view === "sensors") refreshSensors();
+}
+for (const b of document.querySelectorAll(".tab")) b.addEventListener("click", () => show(b.dataset.view));
+show(location.hash === "#sensors" ? "sensors" : "model");
+
+// 새로고침 간격 (고른 값은 이 브라우저에 기억). 1초를 골라도 서버는 DB를 5초에 한 번만 읽는다(cache_seconds)
+const picker = document.getElementById("interval");
+let timer = null;
+function store(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* 저장 못 해도 동작 */ } }
+function saved() { try { return localStorage.getItem("refresh-seconds"); } catch (e) { return null; } }
+function schedule() {
+  clearInterval(timer);
+  const seconds = Number(picker.value) || 10;
+  timer = setInterval(() => (location.hash === "#sensors" ? refreshSensors() : refresh()), seconds * 1000);
+}
+picker.value = [...picker.options].some(o => o.value === saved()) ? saved() : "10";
+picker.addEventListener("change", () => { store("refresh-seconds", picker.value); schedule(); });
 refresh();
-setInterval(refresh, 30000);
+schedule();
+setInterval(tick, 1000);
 </script>
 </body>
 </html>

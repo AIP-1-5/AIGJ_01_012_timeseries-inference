@@ -5,27 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>교육장 공기 상태</title>
 <style>
-  :root { --bg: #f6f7f9; --card: #fff; --ink: #1d2330; --muted: #6b7385; --line: #e3e6ec;
-          --ok: #1f8a4c; --warn: #c77700; --bad: #c62f2f; --accent: #2b6cb0; }
+  /* 레이아웃: 넓은 화면은 공간 4곳을 2×2로 화면 높이에 맞춰 크게, 좁은 화면은 한 줄씩 */
+  :root { --bg: #eef2f3; --card: #ffffff; --ink: #17252a; --muted: #5b6d72; --line: #d5dfe0;
+          --ok: #1f8a4c; --warn: #b86b00; --bad: #c62f2f; --accent: #2b6cb0; --band: #f4f7f8; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #14171d; --card: #1d222b; --ink: #e8ebf0; --muted: #98a0b0; --line: #2d3440;
-            --ok: #4cc27c; --warn: #f0a63a; --bad: #ef6464; --accent: #6aa5e8; }
+    :root { --bg: #101719; --card: #182225; --ink: #e4ecec; --muted: #9aabae; --line: #2b383c;
+            --ok: #4cc27c; --warn: #f0a63a; --bad: #ef6464; --accent: #6aa5e8; --band: #1d292d; }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink);
-         font: 15px/1.45 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-bottom: 12px; }
-  h1 { font-size: 20px; margin: 0; }
-  .muted { color: var(--muted); font-size: 13px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
-  .card h2 { font-size: 16px; margin: 0 0 8px; display: flex; justify-content: space-between; }
-  .big { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .row { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0; }
-  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; }
+  html { height: 100%; }
+  body { margin: 0; padding: 20px; min-height: 100%; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; gap: 16px;
+         font: 18px/1.45 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
+  h1 { font-size: 30px; margin: 0; }
+  .muted { color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 12px; border-radius: 99px; font-size: 16px; border: 1.5px solid currentColor; }
+  .grid { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(300px, 1fr)); gap: 16px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: auto; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 26px;
+          display: grid; grid-template-rows: auto minmax(150px, 1fr) auto; gap: 12px; min-width: 0; min-height: 0; }
+  .body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; min-height: 0; }
+  @media (max-width: 640px) { .body { grid-template-columns: minmax(0, 1fr); } }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+  .head h2 { font-size: 30px; margin: 0; white-space: nowrap; }
+  .nums { display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+  .label { font-size: 16px; color: var(--muted); }
+  .big { font-size: clamp(48px, min(5.2vw, 9vh), 104px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mid { font-size: clamp(32px, min(3vw, 5.5vh), 60px); font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; }
+  .then { font-size: 20px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .then b { color: var(--ink); }
   .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
-  ul { margin: 6px 0 0; padding-left: 18px; }
-  svg { width: 100%; height: 56px; display: block; }
+  .chart { position: relative; min-height: 170px; background: var(--band); border-radius: 12px; }
+  .chart svg { position: absolute; left: 52px; top: 10px; width: calc(100% - 64px); height: calc(100% - 36px); overflow: visible; }
+  .chart .ylab { position: absolute; left: 8px; font-size: 14px; color: var(--muted); transform: translateY(-50%); }
+  .chart .xlab { position: absolute; bottom: 4px; font-size: 14px; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
+  .chart .xlab.end { transform: translateX(-100%); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font-size: 18px; padding: 4px 12px; border-radius: 99px; background: var(--band); }
+  .alerts { display: flex; flex-direction: column; gap: 4px; font-size: 19px; }
+  .alerts div::before { content: "● "; }
+  .empty { color: var(--muted); font-size: 20px; align-self: center; }
+  footer { font-size: 15px; }
 </style>
 </head>
 <body>
@@ -35,43 +55,65 @@
   <span id="health" class="pill">-</span>
 </header>
 <div id="spaces" class="grid"></div>
-<p class="muted">매분 계산 · 5분 칸 기준 · 예측선은 지금부터 60분 (점선 = 1,000 ppm). 원본: <code>/v1/spaces</code>, 형식: docs/interface.md</p>
+<footer class="muted">매분 계산 · 5분 칸 기준 · 그래프는 지금부터 60분 CO₂ 예측 (빨간 점선 = 1,000 ppm) · 30초마다 새로고침 · 원본 <code>/v1/spaces</code></footer>
 <script>
-const fmt = (v, d = 0) => v == null ? "–" : Number(v).toFixed(d);
+const fmt = (v, d = 0) => v == null || Number.isNaN(Number(v)) ? "–" : Number(v).toFixed(d);
 const kst = iso => iso ? new Date(iso).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" }) : "–";
+const arrow = (a, b) => b == null || a == null ? "" : b > a + 0.5 ? "↑" : b < a - 0.5 ? "↓" : "→";
 
-function spark(fc) {
-  if (!fc) return "";
+function chart(fc) {
+  if (!fc) return `<div class="chart" style="display:grid;place-items:center"><div class="empty">예측 없음</div></div>`;
   const vals = [fc.now, ...fc.points.map(p => p.value)];
-  const lo = Math.min(...vals, 400), hi = Math.max(...vals, 1100);
-  const x = i => (i / 12) * 100, y = v => 52 - ((v - lo) / (hi - lo)) * 48;
-  const path = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  return `<svg viewBox="0 0 100 56" preserveAspectRatio="none" aria-label="CO2 60분 예측">
-    <line x1="0" x2="100" y1="${y(1000)}" y2="${y(1000)}" stroke="currentColor" class="bad" stroke-dasharray="2 2" stroke-width="0.6"/>
-    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+  const lo = Math.floor(Math.min(...vals, 450) / 50) * 50, hi = Math.ceil(Math.max(...vals, 1050) / 50) * 50;
+  const H = 100, x = i => (i / 12) * 100, y = v => H - ((v - lo) / (hi - lo)) * H;
+  const path = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+  const area = `${path} L100,${H} L0,${H} Z`;
+  const pct = v => `${(y(v) / H) * 100}%`;
+  return `<div class="chart">
+    <svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-label="CO₂ 60분 예측: 지금 ${fmt(fc.now)}, 60분 뒤 ${fmt(fc.points[11].value)} ppm">
+      <path d="${area}" fill="var(--accent)" fill-opacity="0.12" stroke="none"/>
+      <line x1="0" x2="100" y1="${y(1000)}" y2="${y(1000)}" stroke="var(--bad)" stroke-dasharray="1.5 1.5" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="3" vector-effect="non-scaling-stroke"/>
+      <circle cx="0" cy="${y(fc.now)}" r="1.2" fill="var(--accent)"/>
+    </svg>
+    ${(hi - 1000) / (hi - lo) > 0.12 ? `<span class="ylab" style="top:calc(10px + (100% - 36px) * ${(y(hi) / H)})">${hi}</span>` : ""}
+    <span class="ylab bad" style="top:calc(10px + (100% - 36px) * ${(y(1000) / H)})">1000</span>
+    <span class="ylab" style="top:calc(10px + (100% - 36px) * ${(y(lo) / H)})">${lo}</span>
+    <span class="xlab" style="left:calc(52px + (100% - 64px) * 0)">지금</span>
+    <span class="xlab" style="left:calc(52px + (100% - 64px) * 0.5)">30분</span>
+    <span class="xlab end" style="left:calc(52px + (100% - 64px) * 1)">60분</span>
+  </div>`;
 }
 
 function card(s) {
   const co2 = s.forecast && s.forecast.co2, t = s.forecast && s.forecast.temperature;
   const st = s.state || {}, an = s.anomaly || {};
   const co2cls = co2 ? (co2.now >= 1000 ? "bad" : co2.now >= 800 ? "warn" : "ok") : "muted";
-  const alerts = (s.alerts || []).map(a => `<li class="${a.level === "warning" ? "warn" : "muted"}">${a.message}</li>`).join("");
-  return `<div class="card">
-    <h2>${s.space}<span class="muted">센서 ${s.sensors.total - s.sensors.stale.length}/${s.sensors.total}</span></h2>
-    <div class="row">
-      <div><div class="muted">CO₂ (ppm)</div><div class="big ${co2cls}">${co2 ? fmt(co2.now) : "–"}</div>
-        <div class="muted">60분 뒤 ${co2 ? fmt(co2.points[11].value) : "–"}</div></div>
-      <div><div class="muted">온도 (℃)</div><div class="big">${t ? fmt(t.now, 1) : "–"}</div>
-        <div class="muted">60분 뒤 ${t ? fmt(t.points[11].value, 1) : "–"}</div></div>
+  const co2then = co2 ? co2.points[11].value : null, tthen = t ? t.points[11].value : null;
+  const alive = s.sensors.total - s.sensors.stale.length;
+  const chips = [
+    `<span class="chip">사용 ${st.occupied == null ? "–" : `${st.occupied ? "중" : "안 함"} ${fmt(st.occupied_probability * 100)}%`}</span>`,
+    `<span class="chip ${an.is_anomaly ? "bad" : ""}">이상 ${an.score == null ? "–" : an.is_anomaly ? `의심 (${an.cause})` : "정상"}</span>`,
+    st.ventilation_probability != null ? `<span class="chip ${st.ventilation_alert ? "warn" : ""}">환기 ${st.ventilation_alert ? "필요" : "괜찮음"}</span>` : "",
+  ].join("");
+  const alerts = (s.alerts || []).map(a => `<div class="${a.level === "warning" ? "warn" : "muted"}">${a.message}</div>`).join("");
+  return `<section class="card" aria-label="${s.space}">
+    <div class="head"><h2>${s.space}</h2><span class="muted">센서 ${alive}/${s.sensors.total} · 마지막 ${kst(s.sensors.last_seen)}</span></div>
+    <div class="body">
+    <div class="nums">
+      <div><div class="label">CO₂ ppm</div><div class="big ${co2cls}">${co2 ? fmt(co2.now) : "–"}</div>
+        <div class="then">60분 뒤 <b>${fmt(co2then)}</b> ${arrow(co2 && co2.now, co2then)}</div></div>
+      <div><div class="label">온도 ℃</div><div class="mid">${t ? fmt(t.now, 1) : "–"}</div>
+        <div class="then">60분 뒤 <b>${fmt(tthen, 1)}</b> ${arrow(t && t.now, tthen)}</div></div>
     </div>
-    ${spark(co2)}
-    <div class="row muted">
-      <span>사용 ${st.occupied == null ? "–" : `${st.occupied ? "중" : "안 함"} (${fmt(st.occupied_probability * 100)}%)`}</span>
-      <span>이상 점수 ${fmt(an.score, 2)}${an.threshold ? " / " + fmt(an.threshold, 2) : ""}</span>
+    ${chart(co2)}
     </div>
-    ${alerts ? `<ul>${alerts}</ul>` : `<div class="ok" style="margin-top:6px">경보 없음</div>`}
-    ${s.forecast_unavailable ? `<div class="muted">예측 없음: ${s.forecast_unavailable}</div>` : ""}
-  </div>`;
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="chips">${chips}</div>
+      ${alerts ? `<div class="alerts">${alerts}</div>` : `<div class="ok" style="font-size:19px">경보 없음</div>`}
+      ${s.forecast_unavailable ? `<div class="muted">예측 없음: ${s.forecast_unavailable}</div>` : ""}
+    </div>
+  </section>`;
 }
 
 async function refresh() {
@@ -79,12 +121,12 @@ async function refresh() {
     const [res, health] = await Promise.all([fetch("/v1/spaces"), fetch("/health")]);
     const h = await health.json();
     const el = document.getElementById("health");
-    el.textContent = h.status === "ok" ? "정상" : "멈춤/지연";
+    el.textContent = h.status === "ok" ? "서비스 정상" : "멈춤/지연";
     el.className = "pill " + (h.status === "ok" ? "ok" : "bad");
     if (!res.ok) return;
     const data = await res.json();
     document.getElementById("meta").textContent =
-      `기준 ${kst(data.slot)} KST · 계산 ${kst(data.generated_at)} · 모델 ${(h.models || {}).forecast || "-"}`;
+      `기준 ${kst(data.slot)} · 계산 ${kst(data.generated_at)} · 모델 ${(h.models || {}).forecast || "-"}`;
     document.getElementById("spaces").innerHTML = data.spaces.map(card).join("");
   } catch (e) {
     document.getElementById("meta").textContent = "서비스에 연결할 수 없음";

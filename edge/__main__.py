@@ -1,7 +1,10 @@
-"""과제 7: 엣지 최적화 측정. 보드 B에서 실행한다.
+"""과제 7: 엣지 최적화 측정. 무거운 준비는 맥, 측정만 보드 B에서 한다 (2026-10-22 팀 결정).
 
-  python -m edge bench    가능한 실행 방식마다 지연(배치 1·4, 평균·p95)·결과 차이(원래 단위)·전력/GPU/메모리
+  python -m edge prepare  (맥) 고른 모델과 시험 기간 입력 2,000개를 data/edge/bundle/로 묶는다
+  python -m edge bench    (보드) 묶음만 읽어 실행 방식마다 지연(배치 1·4, 평균·p95)·결과 차이(원래 단위)·전력/GPU/메모리
   python -m edge report   docs/reports/007-comparison.md
+
+보드는 1년치 데이터로 표본을 만들지 않는다(메모리). 묶음은 몇 MB이고 scp로 옮긴다.
 
 실행 방식: PyTorch CPU(FP32 기준), PyTorch GPU(FP32·FP16), ONNX Runtime(가능한 제공자), TensorRT FP16.
 설치돼 있지 않은 방식은 '없음'으로 기록하고 건너뛴다. 모델: 과제 3 예측(GRU), 과제 4 오토인코더.
@@ -136,6 +139,53 @@ def autoencoder_model_and_inputs(root, n=2000):
     x, m, c = ds.batch(ds.valid[:n])
     threshold = json.loads((ctx.out / "threshold.json").read_text(encoding="utf-8"))["threshold"]
     return "autoencoder", model, (x.numpy(), c.numpy()), ["x", "cond"], ["recon"], (m.numpy(), threshold)
+
+
+LOADERS = ((forecast_model_and_inputs, "forecast"), (autoencoder_model_and_inputs, "autoencoder"))
+
+
+def bundle_dir(root):
+    return root / "data" / "edge" / "bundle"
+
+
+def cmd_prepare(root):
+    """맥에서: 모델(전체 객체)과 입력·비교용 값을 묶음으로 저장."""
+    from pipeline.guard import refuse_heavy_on_board
+
+    if refuse_heavy_on_board("과제 7 입력 준비(1년치 표본 만들기)"):
+        return 2
+    out = bundle_dir(root)
+    out.mkdir(parents=True, exist_ok=True)
+    index = []
+    for loader, kind in LOADERS:
+        name, model, inputs, names, outputs, extra = loader(root)
+        torch.save(model.cpu().eval(), out / f"{kind}.pt")
+        arrays = {f"in_{n}": np.ascontiguousarray(a) for n, a in zip(names, inputs)}
+        if kind == "forecast":
+            arrays["std"] = extra
+            extra_meta = {}
+        else:
+            arrays["mask"] = extra[0]
+            extra_meta = {"threshold": float(extra[1])}
+        np.savez_compressed(out / f"{kind}.npz", **arrays)
+        index.append({"kind": kind, "name": name, "names": names, "outputs": outputs, **extra_meta})
+        print(f"[{kind}] {name}: 입력 {len(inputs[0])}개 → {out}")
+    (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+    return 0
+
+
+def load_bundle(root):
+    """보드에서: 묶음 → [(name, model, inputs, names, outputs, extra, kind)]."""
+    out = bundle_dir(root)
+    items = []
+    for entry in json.loads((out / "index.json").read_text(encoding="utf-8")):
+        kind = entry["kind"]
+        model = torch.load(out / f"{kind}.pt", map_location="cpu", weights_only=False).eval()
+        data = np.load(out / f"{kind}.npz")
+        inputs = tuple(data[f"in_{n}"] for n in entry["names"])
+        extra = data["std"] if kind == "forecast" else (data["mask"], entry["threshold"])
+        items.append((entry["name"], model, inputs, entry["names"], entry["outputs"], extra, kind))
+    return items
 
 
 # ---------- 실행 방식 ----------
@@ -298,13 +348,21 @@ def cmd_bench(root):
     out_dir.mkdir(parents=True, exist_ok=True)
     report = {"environment": environment(), "models": {}}
     print(json.dumps(report["environment"], ensure_ascii=False))
-    for loader, kind in ((forecast_model_and_inputs, "forecast"), (autoencoder_model_and_inputs, "autoencoder")):
-        try:
-            name, model, inputs, names, outputs, extra = loader(root)
-        except Exception as exc:
-            report["models"][kind] = {"error": f"모델을 불러오지 못함: {exc}"}
-            print(f"[{kind}] 건너뜀: {exc}")
-            continue
+    if (bundle_dir(root) / "index.json").exists():
+        items = load_bundle(root)
+    else:                                                  # 묶음이 없으면 직접 만든다 (맥에서만 권장)
+        from pipeline.guard import refuse_heavy_on_board
+
+        if refuse_heavy_on_board("과제 7 입력 준비 — 맥에서 `python -m edge prepare` 후 data/edge/bundle/을 복사"):
+            return 2
+        items = []
+        for loader, kind in LOADERS:
+            try:
+                items.append((*loader(root), kind))
+            except Exception as exc:
+                report["models"][kind] = {"error": f"모델을 불러오지 못함: {exc}"}
+                print(f"[{kind}] 건너뜀: {exc}")
+    for name, model, inputs, names, outputs, extra, kind in items:
         report["models"][name] = {"kind": kind, "samples": int(len(inputs[0])),
                                   "methods": bench_model(name, model, inputs, names, outputs, extra, out_dir, kind)}
         for method, r in report["models"][name]["methods"].items():
@@ -360,6 +418,7 @@ def cmd_report(root):
             lines.append(f"| {method} | {b1['mean_ms']:.3f} / {b1['p95_ms']:.3f} | {b4['mean_ms']:.3f} / {b4['p95_ms']:.3f} | {diff} | {power} | {gpu} | {ram} |")
         lines.append("")
     lines += ["과제 5 분류기(HistGradientBoosting)는 트리 모델이라 TensorRT 변환 대상이 아니다. CPU에서 한 번 판정이 1 ms 안쪽이라 그대로 쓴다.", ""]
+    settings.reports_dir.mkdir(parents=True, exist_ok=True)
     (settings.reports_dir / "007-comparison.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"측정표 → {settings.reports_dir / '007-comparison.md'}")
     return 0
@@ -367,11 +426,11 @@ def cmd_report(root):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m edge", description="과제 7 엣지 최적화 측정")
-    parser.add_argument("command", choices=["bench", "report", "all"])
+    parser.add_argument("command", choices=["prepare", "bench", "report", "all"])
     parser.add_argument("--root", default=".")
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
-    steps = {"bench": [cmd_bench], "report": [cmd_report], "all": [cmd_bench, cmd_report]}[args.command]
+    steps = {"prepare": [cmd_prepare], "bench": [cmd_bench], "report": [cmd_report], "all": [cmd_bench, cmd_report]}[args.command]
     for step in steps:
         code = step(root)
         if code:

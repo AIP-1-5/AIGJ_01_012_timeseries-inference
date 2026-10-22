@@ -1,50 +1,58 @@
 <div align="center">
 
-# 🌿 교육장 공기, 매분 판단합니다
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/header-dark.svg">
+  <img src="docs/assets/header-light.svg" alt="교육장 공기, 매분 판단합니다 — 교육장 CO₂ · 온도 · 습도 센서로 60분 뒤를 예측하고, 이상 · 사용 여부 · 환기 필요를 매분 알려 주는 Jetson 상시 추론 서비스" width="100%">
+</picture>
 
-**교육장 CO₂ · 온도 · 습도 센서로 60분 뒤를 예측하고, 이상 · 사용 여부 · 환기 필요를 매분 알려 주는 Jetson 상시 추론 서비스**
+<br>
 
-![Jetson](https://img.shields.io/badge/Jetson_Orin_Nano_Super-8GB-76B900?logo=nvidia&logoColor=white)
-![JetPack](https://img.shields.io/badge/JetPack-7.2.1-76B900)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
-![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-CPU-005CED?logo=onnx&logoColor=white)
-![MQTT](https://img.shields.io/badge/MQTT-retained-660066?logo=mqtt&logoColor=white)
-![Spec Kit](https://img.shields.io/badge/Spec_Kit-과제_1~8-CC785C)
+![Jetson](https://img.shields.io/badge/Jetson_Orin_Nano_Super-8GB-E8E0D2?style=flat-square&labelColor=181715&color=E8E0D2&logo=nvidia&logoColor=FAF9F5)
+![JetPack](https://img.shields.io/badge/JetPack-7.2.1-E8E0D2?style=flat-square&labelColor=181715&color=E8E0D2)
+![Python](https://img.shields.io/badge/Python-3.12-E8E0D2?style=flat-square&labelColor=181715&color=E8E0D2&logo=python&logoColor=FAF9F5)
+![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-CPU-E8E0D2?style=flat-square&labelColor=181715&color=E8E0D2&logo=onnx&logoColor=FAF9F5)
+![MQTT](https://img.shields.io/badge/MQTT-retained-E8E0D2?style=flat-square&labelColor=181715&color=E8E0D2&logo=mqtt&logoColor=FAF9F5)
+![Spec Kit](https://img.shields.io/badge/Spec_Kit-과제_1~8-E8E0D2?style=flat-square&labelColor=181715&color=E8E0D2)
 
-[결과 한눈에](#-결과-한눈에) · [구조](#-구조) · [서비스](#-상시-추론-서비스-과제-8) · [시작하기](#-시작하기) · [과제별 실행](#-과제별-실행) · [보고서](#-보고서)
+**[결과 한눈에](#결과-한눈에)** · [구조](#구조) · [서비스](#상시-추론-서비스-과제-8) · [시작하기](#시작하기) · [과제별 실행](#과제별-실행) · [보고서](#보고서)
 
 </div>
 
----
+<br>
 
-## ✨ 한 줄 요약
+<sub>00 · SUMMARY</sub>
 
+## 한 줄 요약
+
+> [!NOTE]
 > 맥이 1년치 실데이터로 **학습**하고, 보드 A가 그 모델로 **매분 판단**해서 **API · MQTT · 대시보드**로 내보낸다.
 > 모델과 임계값은 **검증 기간으로만** 골랐고, 시험 결과를 본 뒤 다시 고르지 않았다.
 
-| 🌐 대시보드 | 📄 결과 형식 | 📊 제출 자료 |
+| 대시보드 | 결과 형식 | 제출 자료 |
 |:---:|:---:|:---:|
 | `http://100.113.228.46:8080` (Tailscale) | [docs/interface.md](docs/interface.md) | [final-presentation.pptx](docs/presentation/final-presentation.pptx) |
 
----
+<br>
 
-## 🏁 결과 한눈에
+<sub>01 · RESULTS</sub>
+
+## 결과 한눈에
 
 시험 기간 2026-09-23 ~ 10-21 (실데이터, 시간 순서 분할) · 보드 전력 모드 MAXN SUPER
 
 | 과제 | 무엇을 | 핵심 결과 | 판정 |
 |:---:|---|---|:---:|
-| 1 | 데이터 수집 | 두 보드 모두 30/30 항목 커버율 95% 이상 (최저 **98.3%**), 재접속 15~18초, 재부팅 56초 뒤 재수집 | ✅ |
-| 2 | 진단 · 기준선 | 가장 강한 기준선 = 현재값 유지 (60분 CO₂ **36.3 ppm**) | ✅ |
-| 3 | 60분 예측 | GRU 31.3 ppm, 기준선보다 **13.8%** 감소 (목표 30%) · 온도 32.6% 감소 | ⚠️ CO₂ 미통과 |
-| 4 | 이상 탐지 | 탐지율 **69%** (목표 80%) · 헛경보 하루 0회 | ⚠️ 탐지율 미통과 |
-| 5 | 상태 추정 | 환기 선제 경보 재현율 **88.0%** · macro-F1 0.626 > 규칙 0.608 | ✅ |
-| 6 | 사전학습 모델 | GRU 31.3 < Chronos-Bolt 32.4 ppm · Chronos 39~139 ms, +213 MB | ✅ |
-| 7 | 엣지 최적화 | ONNX Runtime CPU **0.22 ms** (PyTorch의 46배), CO₂ 차이 0.25 ppm | ✅ |
-| 8 | 상시 서비스 | 보드 A 12:14부터 무중단 가동 · API · MQTT · 결과 형식 문서 | 🔄 12시간 진행 중 |
+| 1 | 데이터 수집 | 두 보드 모두 30/30 항목 커버율 95% 이상 (최저 **98.3%**), 재접속 15~18초, 재부팅 56초 뒤 재수집 | 통과 |
+| 2 | 진단 · 기준선 | 가장 강한 기준선 = 현재값 유지 (60분 CO₂ **36.3 ppm**) | 통과 |
+| 3 | 60분 예측 | GRU 31.3 ppm, 기준선보다 **13.8%** 감소 (목표 30%) · 온도 32.6% 감소 | **미통과** · CO₂ |
+| 4 | 이상 탐지 | 탐지율 **69%** (목표 80%) · 헛경보 하루 0회 | **미통과** · 탐지율 |
+| 5 | 상태 추정 | 환기 선제 경보 재현율 **88.0%** · macro-F1 0.626 > 규칙 0.608 | 통과 |
+| 6 | 사전학습 모델 | GRU 31.3 < Chronos-Bolt 32.4 ppm · Chronos 39~139 ms, +213 MB | 통과 |
+| 7 | 엣지 최적화 | ONNX Runtime CPU **0.22 ms** (PyTorch의 46배), CO₂ 차이 0.25 ppm | 통과 |
+| 8 | 상시 서비스 | 보드 A 12:14부터 무중단 가동 · API · MQTT · 결과 형식 문서 | 진행 중 · 12시간 |
 
 <details>
-<summary><b>💡 가장 의외였던 발견 — 검증에서 꼴찌였던 모델이 시험에서 1등이었다</b></summary>
+<summary><b>가장 의외였던 발견 — 검증에서 꼴찌였던 모델이 시험에서 1등이었다</b></summary>
 
 <br>
 
@@ -59,46 +67,56 @@
 
 </details>
 
----
+<br>
 
-## 🧭 구조
+<sub>02 · ARCHITECTURE</sub>
+
+## 구조
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Pretendard, -apple-system, sans-serif','primaryColor':'#EFE9DE','primaryTextColor':'#141413','primaryBorderColor':'#E6DFD8','lineColor':'#6C6A64','secondaryColor':'#F5F0E8','tertiaryColor':'#FAF9F5','clusterBkg':'#F5F0E8','clusterBorder':'#E6DFD8','edgeLabelBackground':'#FAF9F5'}}}%%
 flowchart LR
-    S["📡 교육장 센서<br/>LoRaWAN → MQTT"]
-    I[("🗄️ 교육장 InfluxDB<br/>과거 1년치")]
+    S["교육장 센서<br/>LoRaWAN → MQTT"]
+    I[("교육장 InfluxDB<br/>과거 1년치")]
 
-    subgraph MAC["💻 맥 — 학습"]
+    subgraph MAC["맥 — 학습"]
         T["전처리 · 학습<br/>예측 · 이상 · 상태"]
     end
 
-    subgraph A["🟢 보드 A — 운영 24시간"]
+    subgraph A["보드 A — 운영 24시간"]
         C["수집기<br/>MQTT → SQLite"]
         R["매분 추론<br/>같은 전처리 → ONNX"]
     end
 
-    subgraph B["🧪 보드 B — 측정"]
+    subgraph B["보드 B — 측정"]
         M["속도 · 메모리 측정<br/>시험용 수집기"]
     end
 
-    U["📊 API :8080<br/>MQTT · 대시보드"]
+    U["API :8080<br/>MQTT · 대시보드"]
 
     S --> C --> R --> U
+
+    classDef core fill:#CC785C,stroke:#A9583E,color:#141413
+    classDef dark fill:#181715,stroke:#252320,color:#FAF9F5
+    class R core
+    class U dark
     I --> T -- "ONNX 모델" --> R
     T -- "측정 묶음" --> M
 ```
 
 | 장비 | 역할 | 규칙 |
 |---|---|---|
-| 💻 맥 | 학습 전부, 하드웨어가 필요 없는 작업 | 맥이 켜져 있을 때만 학습 |
-| 🟢 보드 A `team5-a` | 수집기 · 상시 추론 서비스 | 실험 · 재부팅 · 코드 수정 금지, `git pull`로만 배포 |
-| 🧪 보드 B `team5-b` | Jetson 속도 · 메모리 측정, 시험용 수집기 | **학습 금지** (코드가 거부, `pipeline/guard.py`), 무거운 작업은 메모리 2GB 상한 |
+| 맥 | 학습 전부, 하드웨어가 필요 없는 작업 | 맥이 켜져 있을 때만 학습 |
+| 보드 A `team5-a` | 수집기 · 상시 추론 서비스 | 실험 · 재부팅 · 코드 수정 금지, `git pull`로만 배포 |
+| 보드 B `team5-b` | Jetson 속도 · 메모리 측정, 시험용 수집기 | **학습 금지** (코드가 거부, `pipeline/guard.py`), 무거운 작업은 메모리 2GB 상한 |
 
 > 학습과 서비스가 **같은 전처리 코드**(`pipeline/preprocess.py`)를 써서 학습 때 본 입력과 운영 입력이 어긋나지 않는다.
 
----
+<br>
 
-## 🛰️ 상시 추론 서비스 (과제 8)
+<sub>03 · SERVICE</sub>
+
+## 상시 추론 서비스 (과제 8)
 
 매분: 수집 DB → 학습과 같은 전처리 → ONNX 예측 · 이상 점수 · 상태 판단 → 경보 → API · MQTT 발행
 
@@ -119,9 +137,11 @@ flowchart LR
 
 필드 · 단위 · 예시는 [docs/interface.md](docs/interface.md)에 있다.
 
----
+<br>
 
-## 🚀 시작하기
+<sub>04 · GETTING STARTED</sub>
+
+## 시작하기
 
 과제 안내 원문은 팀 Private 저장소 `AIP-1-5/docs`에 있다. 두 저장소를 나란히 clone한다.
 
@@ -149,9 +169,11 @@ python3 -m venv .venv
 
 `./<이름>.sh <명령>`은 `.env`를 불러온 뒤 `.venv/bin/python -m <이름> <명령>`을 실행하는 줄임이다. 자주 쓰는 명령은 [docs/cheatsheet.md](docs/cheatsheet.md)에 상황별로 모았다.
 
----
+<br>
 
-## 🛠️ 과제별 실행
+<sub>05 · RUN</sub>
+
+## 과제별 실행
 
 <details>
 <summary><b>과제 1 · 수집기</b> — 보드 A · B</summary>
@@ -238,9 +260,11 @@ sudo deploy/install-inference.sh    # systemd 등록 (재부팅 후 자동 시�
 
 </details>
 
----
+<br>
 
-## 📚 보고서
+<sub>06 · REPORTS</sub>
+
+## 보고서
 
 | 과제 | 해석 보고서 | 자동 생성 표 · 기록 |
 |:---:|---|---|
@@ -254,9 +278,11 @@ sudo deploy/install-inference.sh    # systemd 등록 (재부팅 후 자동 시�
 | 8 | [008-service](docs/reports/008-service.md) | [docs/interface.md](docs/interface.md) |
 | 전체 | [000-final-report](docs/reports/000-final-report.md) | [제출 PPT](docs/presentation/final-presentation.pptx) |
 
----
+<br>
 
-## 📁 저장소 구성
+<sub>07 · LAYOUT</sub>
+
+## 저장소 구성
 
 ```text
 .
@@ -271,15 +297,17 @@ sudo deploy/install-inference.sh    # systemd 등록 (재부팅 후 자동 시�
 └── tests/                                  단위 시험
 ```
 
----
+<br>
 
-## 📏 지키는 규칙
+<sub>08 · RULES</sub>
 
-- ⏱️ 학습 · 검증 · 시험은 **시간 순서**로 나눈다. 섞지 않는다.
-- 📐 정규화 값은 **학습 기간**으로만 계산한다. 시험 기간은 학습 · 선택에 쓰지 않는다.
-- ⚖️ 기준선과 모델은 **같은 평가 시점 · 같은 정답**으로 비교한다.
-- 📝 모든 결과표에 **측정 조건**(데이터 기간, 실데이터 여부, 시험 기간, 전력 모드)과 **해석**(왜 · 그래서)을 붙인다.
-- 🔒 비밀값은 `.env`에서만 읽는다. 데이터 · DB · `.pt` `.onnx` `.engine`은 커밋하지 않는다.
+## 지키는 규칙
+
+- 학습 · 검증 · 시험은 **시간 순서**로 나눈다. 섞지 않는다.
+- 정규화 값은 **학습 기간**으로만 계산한다. 시험 기간은 학습 · 선택에 쓰지 않는다.
+- 기준선과 모델은 **같은 평가 시점 · 같은 정답**으로 비교한다.
+- 모든 결과표에 **측정 조건**(데이터 기간, 실데이터 여부, 시험 기간, 전력 모드)과 **해석**(왜 · 그래서)을 붙인다.
+- 비밀값은 `.env`에서만 읽는다. 데이터 · DB · `.pt` `.onnx` `.engine`은 커밋하지 않는다.
 
 ### Spec Kit으로 과제 진행
 

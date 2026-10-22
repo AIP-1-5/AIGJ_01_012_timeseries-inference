@@ -16,7 +16,7 @@
 | 코드·설정 커밋 | `b9fe2a7` (`preprocess.toml`) |
 | 사전학습 모델 | amazon/chronos-bolt-tiny, amazon/chronos-bolt-small (추가 학습 없음, CO₂ 과거값만 입력) |
 | 과거 길이 선택 | 검증 기간 60분 MAE로 선택: chronos-bolt-tiny → 576칸, chronos-bolt-small → 576칸 |
-| 추론 측정 장비 | -, torch -, -, 전력 모드 - |
+| 추론 측정 장비 | team5-b Linux aarch64, torch 2.14.1+cpu (6스레드), cpu, 전력 모드 NV Power Mode: MAXN_SUPER, 측정 2026-10-22T05:37:03Z, 워밍업 5회·측정 50회 |
 
 ## 정확도 (시험 기간 CO₂ MAE, ppm, 같은 평가 시점)
 
@@ -48,6 +48,11 @@
 
 | 모델 | 파라미터 | 과거 길이 | 메모리 증가 | 배치 1 평균 / p95 | 배치 4 평균 / p95 | 불러오기 |
 |---|---:|---:|---:|---:|---:|---:|
+| chronos-bolt-tiny | 8,652,672 | 576 | 213 MB | 38.9 / 46.9 ms | 48.3 / 59.0 ms | 17.3 초 |
+| chronos-bolt-small | 47,718,016 | 576 | 약 237 MB* | 139.0 / 298.7 ms | 132.6 / 154.7 ms | 36.0 초 |
+| GRU (과제 3) | 약 6만 | 24 | - | 10.25 / 11.69 ms | 9.96 / 10.52 ms | - |
+
+\* small은 같은 프로세스에서 tiny 다음에 불러 증가분이 9.4 MB로 찍혔다(tiny가 쓰던 메모리를 다시 씀). 불러온 뒤 RSS 493.7 MB에서 tiny 측정 전 기준(약 256 MB)을 뺀 추정값이다. 추론 중 최대 RSS는 tiny 517 MB, small 676 MB(프로세스 전체). GRU는 PyTorch CPU 기준이며, 서비스가 쓰는 ONNX Runtime CPU로는 0.22 ms다([007-comparison.md](007-comparison.md)).
 
 ## 과거 길이별 검증 60분 MAE (ppm)
 

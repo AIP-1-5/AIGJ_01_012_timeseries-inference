@@ -209,7 +209,8 @@ def compute_coverage(store, intervals, start, end, now, excluded=()):
             coverage_1min=slot_coverage(times, start, end, one_min, excluded),
         )
         if last is not None:
-            series.age = now - last
+            # 기간이 끝난 뒤 보고서를 만들어도 기간 끝 기준으로 판정한다 (끝난 뒤 흐른 시간은 끊김이 아니다)
+            series.age = min(now, end) - last
             series.stale = series.age >= max(STALE_MIN, STALE_INTERVAL_FACTOR * interval)
         else:
             series.stale = True

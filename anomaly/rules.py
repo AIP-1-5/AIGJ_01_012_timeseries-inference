@@ -2,6 +2,8 @@
 
   spike        |Δ| > 학습 기간 99.99% × 1.5 이고 다음 칸에서 반대로 되돌아옴 (튄 값)
   stuck        CO₂·습도가 N칸 동안 완전히 같은 값 (N = 학습 기간 정상 최장 × 1.5, 최소 6칸)
+  frozen       습도(또는 온도)가 9칸 넘게 같은 값인데 같은 공간의 온도(또는 습도)는 그동안 움직임
+               (상대습도는 온도를 따라 바뀌므로 한쪽만 멈추면 고장). 움직임 기준 = 학습 기간 정상 분위 × 1.2
   night_level  사람 없는 밤(00~06시) 최근 1시간 최솟값 CO₂ > 학습 기간 밤 99.5% (영점 틀어짐)
   hot_class    수업 중 온도 − 최근 일정일 같은 시각 중앙값 > 학습 기간 99.9% (냉방 정지)
   high_class   수업 중 CO₂ > 학습 기간 같은 30분 시각대 99.9% (환기 정지)
@@ -14,7 +16,10 @@ import pandas as pd
 
 from forecast.features import calendar_features
 
-RULES = ("spike", "stuck", "night_level", "hot_class", "high_class")
+RULES = ("spike", "stuck", "frozen", "night_level", "hot_class", "high_class")
+FROZEN_PAIRS = {"humidity": "temperature", "temperature": "humidity"}   # 멈춘 항목 → 움직임을 볼 짝
+FROZEN_BINS = 9                                                          # 45분 (CO₂ 값 고정 기준과 같은 길이)
+FROZEN_FLOOR = {"temperature": 0.3, "humidity": 1.5}                     # 짝 움직임 기준의 최솟값
 RULE_METRIC = {"night_level": "co2", "hot_class": "temperature", "high_class": "co2"}
 
 
@@ -40,6 +45,22 @@ def run_length(series):
     return pd.Series(values, index=series.index).groupby(group).cumcount().to_numpy() + 1
 
 
+def partner_range(metric_values, partner_values):
+    """칸마다 (지금 같은 값이 이어진 칸 수, 그 구간 동안 짝 항목의 최대−최소)."""
+    values = metric_values.to_numpy()
+    change = np.r_[True, values[1:] != values[:-1]] | np.isnan(values)
+    group = np.cumsum(change)
+    length = pd.Series(values).groupby(group).cumcount().to_numpy() + 1
+    partner = pd.Series(partner_values.to_numpy())
+    span = (partner.groupby(group).cummax() - partner.groupby(group).cummin()).to_numpy()
+    return length, span
+
+
+def observed(frame, metric):
+    flag = frame.get(f"obs_{metric}")
+    return frame[metric] if flag is None else frame[metric].where(flag.astype(bool))
+
+
 def local_info(index, space, schedule, tz):
     cal = calendar_features(index, space, "full", schedule, tz)
     local = index.tz_convert(tz) - pd.Timedelta(minutes=5)
@@ -59,7 +80,7 @@ def class_reference(temp, in_class, local):
 
 def fit(train_frames, schedule, tz):
     """학습 기간에서 기준값 계산."""
-    params = {"spike": {}, "stuck": {}, "night_level": {}, "hot_class": {}, "high_class": {}}
+    params = {"spike": {}, "stuck": {}, "frozen": {}, "night_level": {}, "hot_class": {}, "high_class": {}}
     runs = {"co2": 0, "humidity": 0}
     for space, frame in train_frames.items():
         local, in_class, hour = local_info(frame.index, space, schedule, tz)
@@ -70,6 +91,13 @@ def fit(train_frames, schedule, tz):
         for metric in runs:
             if frame[metric].notna().mean() > 0.5:
                 runs[metric] = max(runs[metric], max_run(frame[metric].where(frame[f"obs_{metric}"])))
+        for metric, partner in FROZEN_PAIRS.items():
+            if frame[metric].notna().mean() < 0.5 or frame[partner].notna().mean() < 0.5:
+                continue
+            length, span = partner_range(observed(frame, metric), observed(frame, partner))
+            normal = span[(length >= FROZEN_BINS) & ~np.isnan(span)]
+            limit = float(np.quantile(normal, 0.9999)) * 1.2 if len(normal) else 0.0
+            params["frozen"][f"{space}|{metric}"] = max(limit, FROZEN_FLOOR[partner])
         co2 = frame["co2"]
         if co2.notna().mean() > 0.5:
             night = co2.rolling(12, min_periods=6).min()[(hour >= 0) & (hour < 6)].dropna()
@@ -110,6 +138,13 @@ def apply(frames, params, schedule, tz):
             length = run_length(v)
             hit = (length >= n) & v.notna().to_numpy()
             rows += [(space, t, "stuck", metric) for t in frame.index[hit]]
+        for metric, partner in FROZEN_PAIRS.items():
+            limit = params.get("frozen", {}).get(f"{space}|{metric}")
+            if limit is None:
+                continue
+            length, span = partner_range(observed(frame, metric), observed(frame, partner))
+            hit = (length >= FROZEN_BINS) & (np.nan_to_num(span) > limit) & frame[metric].notna().to_numpy()
+            rows += [(space, t, "frozen", metric) for t in frame.index[hit]]
         if space in params["night_level"]:
             level = frame["co2"].rolling(12, min_periods=6).min()
             hit = (level > params["night_level"][space]) & (hour >= 0) & (hour < 6)

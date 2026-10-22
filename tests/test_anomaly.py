@@ -105,3 +105,30 @@ def test_pick_threshold_respects_false_alarm_cap():
              0.3: {"rate": 0.9, "false_per_day": 0.4}, 0.4: {"rate": 0.7, "false_per_day": 0.1}}
     chosen, _ = pick_threshold(list(table), lambda t: table[t], target_false_per_day=0.9)
     assert chosen == 0.3                                          # 헛경보 상한 안에서 탐지율 최대, 같으면 높은 임계값
+
+
+def test_frozen_rule_catches_humidity_stuck_while_temperature_moves(env):
+    settings, schedule, frames, start, end = env
+    train = {s: f[f.index < start] for s, f in frames.items()}
+    params = rules.fit(train, schedule, settings.timezone)
+    assert params["frozen"]
+    test = {s: f[(f.index >= start) & (f.index < end)].copy() for s, f in frames.items()}
+    space = next(k.split("|")[0] for k in params["frozen"] if k.endswith("|humidity"))
+    frame = test[space]
+    b = frame.index[1500]
+    window = (frame.index >= b) & (frame.index <= b + pd.Timedelta(hours=3))
+    frame.loc[window, "humidity"] = frame.loc[b - pd.Timedelta(minutes=5), "humidity"]
+    frame.loc[window, "temperature"] = frame.loc[window, "temperature"] + np.linspace(0, 3, window.sum())
+    rows = rules.apply(test, params, schedule, settings.timezone)
+    frozen = rows[(rows["rule"] == "frozen") & (rows["space"] == space) & (rows["cause"] == "humidity")]
+    assert not frozen.empty and frozen["time"].min() <= b + pd.Timedelta(hours=3)
+    clean_rows = rules.apply({s: f[(f.index >= start) & (f.index < end)] for s, f in frames.items()}, params, schedule, settings.timezone)
+    assert (clean_rows["rule"] == "frozen").sum() == 0                      # 고장 없는 복사본에서는 안 울림
+
+
+def test_frozen_rule_old_params_still_work(env):
+    settings, schedule, frames, start, end = env
+    params = rules.fit({s: f[f.index < start] for s, f in frames.items()}, schedule, settings.timezone)
+    params.pop("frozen")                                                    # 보드 A에 있는 옛 rules.json
+    rows = rules.apply({s: f[(f.index >= start) & (f.index < end)] for s, f in frames.items()}, params, schedule, settings.timezone)
+    assert "frozen" not in set(rows["rule"])

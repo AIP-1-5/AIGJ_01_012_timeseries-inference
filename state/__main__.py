@@ -31,6 +31,7 @@ from .features import (CALENDAR_FEATURES, SENSOR_FEATURES, calendar_frame, load_
 OCC_FEATURES = SENSOR_FEATURES                                   # 일정·시각 없음 (spec)
 VENT_FEATURES = SENSOR_FEATURES + CALENDAR_FEATURES
 RECALL_TARGET = 0.85
+FALSE_OCC_LIMIT = 0.02   # 사용 여부: 검증 기간 비어있음→사용중 상한 (빈 방 냉난방이 가장 비싼 오류)
 
 
 def build_table(clean, settings, schedule, split, observations):
@@ -77,15 +78,22 @@ def fit(table, features, label, seed=1):
 
 
 def choose_threshold(prob, y, rule):
-    """rule='f1': F1 최대. rule='recall': 재현율 ≥ 0.85 중 macro-F1 최대(없으면 재현율 최대)."""
+    """rule='f1': F1 최대. rule='recall': 재현율 ≥ 0.85 중 macro-F1 최대(없으면 재현율 최대).
+    rule='control': 비어있음→사용중 ≤ 2% 중 재현율 최대(같으면 F1 큰 쪽). 1차(10-22)는 'f1'이라 0.95가 골라졌다."""
     rows = []
     for threshold in np.round(np.arange(0.05, 0.96, 0.01), 2):
         pred = prob >= threshold
+        negative = np.asarray(y) == 0
         rows.append({"threshold": float(threshold), "recall": recall_score(y, pred, zero_division=0),
+                     "false_occupied_rate": float(pred[negative].mean()) if negative.any() else 0.0,
                      "f1": f1_score(y, pred, zero_division=0), "macro_f1": f1_score(y, pred, average="macro", zero_division=0)})
     table = pd.DataFrame(rows)
     if rule == "f1":
         best = table.sort_values(["f1", "threshold"], ascending=[False, False]).iloc[0]
+    elif rule == "control":
+        ok = table[table["false_occupied_rate"] <= FALSE_OCC_LIMIT]
+        best = (ok.sort_values(["recall", "f1", "threshold"], ascending=[False, False, False]).iloc[0] if len(ok)
+                else table.sort_values("threshold").iloc[-1])
     else:
         ok = table[table["recall"] >= RECALL_TARGET]
         best = (ok.sort_values(["macro_f1", "threshold"], ascending=[False, False]).iloc[0] if len(ok)
@@ -129,7 +137,7 @@ def run(config_dir, log=print):
     occ = table[table["occupied"].notna()]
     train, val, test = (occ[occ["period"] == p] for p in ("train", "val", "test"))
     occ_model = fit(train, OCC_FEATURES, "occupied")
-    occ_thr, occ_sweep = choose_threshold(occ_model.predict_proba(val[OCC_FEATURES])[:, 1], val["occupied"].astype(int), "f1")
+    occ_thr, occ_sweep = choose_threshold(occ_model.predict_proba(val[OCC_FEATURES])[:, 1], val["occupied"].astype(int), "control")
     occ_pred = (occ_model.predict_proba(test[OCC_FEATURES])[:, 1] >= occ_thr).astype(int)
     occ_rule = (test["co2_d15"] >= 30).astype(int).to_numpy()
     result["occupancy"] = {
@@ -227,7 +235,7 @@ def write_report(root, settings, clean, split, result, observations, occ_sweep, 
             "사용 여부 정답": "실습실 일정(평일 09:00~11:30·13:00~18:00, 공휴일 제외). 점심·일정 변화 직후 15분은 제외",
             "사용 여부 입력": "센서만 (CO₂·온도·습도 수준과 변화). 시각·요일·일정 없음",
             "환기 경보 정답": "지금 < 1,000 ppm이고 30분 안 ≥ 1,000 ppm. 이미 1,000 이상인 시각 제외",
-            "모델": f"HistGradientBoosting(균형 가중치). 임계값은 검증 기간 (사용 여부 {occ['threshold']:.2f}: F1 최대, 환기 {vent['threshold']:.2f}: 재현율 ≥ 85% 중 macro-F1 최대)",
+            "모델": f"HistGradientBoosting(균형 가중치). 임계값은 검증 기간 (사용 여부 {occ['threshold']:.2f}: 비어있음→사용중 ≤ {FALSE_OCC_LIMIT:.0%} 중 재현율 최대, 환기 {vent['threshold']:.2f}: 재현율 ≥ 85% 중 macro-F1 최대)",
             "직접 관찰": f"{len(observations)}구간" if observations is not None else "아직 없음 (`docs/observations/occupancy.csv`)",
         }),
         "",

@@ -80,7 +80,7 @@ $ curl -s 'http://100.113.228.46:8080/v1/sensors?space=lab' | jq '.spaces[0].sen
 | `forecast_unavailable` | 문자열 | 예측을 못 낸 이유 (예: `최근 값이 끊김`) |
 | `anomaly.score` / `.threshold` / `.is_anomaly` | 실수 / 실수 / 참·거짓 | 오토인코더 재구성 오차(최근 15분, 정규화 단위). `score > threshold`이면 이상 |
 | `anomaly.cause` / `.by_metric` | `co2`·`temperature`·`humidity` / 항목별 점수 | 원인 센서 항목 (이상일 때만) |
-| `rules[]` | `{rule, cause, time}` | 최근 칸에 걸린 규칙 경보 (`spike` 급변, `stuck` 값 고정, `night_level` 밤 영점, `hot_class`·`high_class` 수업 중 과열·과다) |
+| `rules[]` | `{rule, cause, time}` | 최근 칸에 걸린 규칙 경보 (`spike` 급변, `stuck` 값 고정, `frozen` 짝 항목은 움직이는데 한 항목만 고정, `night_level` 밤 영점, `hot_class`·`high_class` 수업 중 과열·과다) |
 | `state.occupied` / `.occupied_probability` | 참·거짓 / 0~1 | 사용 중 여부 (센서 값만으로 추정) |
 | `state.ventilation_alert` / `.ventilation_probability` / `.co2_over_limit_now` | 참·거짓 / 0~1 / 참·거짓 | 30분 안 CO₂ 1,000 ppm 도달 예상 또는 이미 초과 |
 | `monitor.co2` / `.temperature` | `{mae_60, n}` (ppm / ℃, 개수) | 자체 채점: 60분 전에 낸 예측과 지금 실제값의 평균 절대 오차(최근 24시간, 서비스 재시작 시 초기화) |

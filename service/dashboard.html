@@ -2,409 +2,651 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>교육장 공기 상태</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600&family=Noto+Sans+KR:wght@400;500;600&display=swap">
 <style>
-  /* 레이아웃: 넓은 화면은 공간 4곳을 2×2로 화면 높이에 맞춰 크게, 좁은 화면은 한 줄씩 */
-  :root { --bg: #eef2f3; --card: #ffffff; --ink: #17252a; --muted: #5b6d72; --line: #d5dfe0;
-          --ok: #1f8a4c; --warn: #b86b00; --bad: #c62f2f; --accent: #2b6cb0; --band: #f4f7f8; }
+  /* 디자인: 크림 · 코랄 시스템(cream-coral-pptx와 같은 값). 제목·큰 숫자는 세리프 400, 본문 Pretendard(없으면 Noto Sans KR).
+     코랄은 "모델 예측" 한 가지 뜻으로만 쓴다. 그림자·그라데이션 없음, 깊이는 바탕 → 패널 → 다크 세 단계.
+     구성(Taste 화면 규칙): 제목 아래 한 문장 결론 → 환기 순서(가장 큰 블록)·켜진 경보 → 공간별 상세 → 센서 표. 같은 숫자는 한 곳에만. */
+  :root {
+    --ground: #F5F0E8; --panel: #FAF9F5; --panel-line: #E6DFD8; --rule: #EBE6DF; --ink: #141413; --text: #3D3D3A; --muted: #6C6A64; --muted-soft: #8E8B82;
+    --accent: #CC785C; --accent-soft: rgba(204,120,92,.18); --accent-text: #A9583E; --band: rgba(61,61,58,.10); --grid: #E6DFD8;
+    --hit: #C64545; --good-text: #3D3D3A; --warn: #E8A55A; --warn-text: #8F5B12; --ok: #5DB872; --track: #E8E0D2;
+    --btn: #181715; --on-btn: #FAF9F5; --tip: #181715; --on-tip: #FAF9F5;
+    --dark: #181715; --on-dark: #FAF9F5; --on-dark-soft: #A09D96; --dark-rule: #2B2925;
+    --f-title: "Noto Serif KR", "Nanum Myeongjo", serif; --f-body: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+    --w-title: 400; --w-h2: 400; --w-fig: 400; --s-title: 32px; --t-title: -.02em; --t-h2: -.01em;
+    --r-card: 12px; --r-btn: 8px; --r-track: 3px; --gap: 16px;
+  }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #101719; --card: #182225; --ink: #e4ecec; --muted: #9aabae; --line: #2b383c;
-            --ok: #4cc27c; --warn: #f0a63a; --bad: #ef6464; --accent: #6aa5e8; --band: #1d292d; }
+    :root:not([data-theme="light"]) {
+      --ground: #141311; --panel: #1E1D1A; --panel-line: #2E2C28; --rule: #2B2925; --ink: #FAF9F5; --text: #D9D5CC; --muted: #A09D96; --muted-soft: #8A867E;
+      --accent-soft: rgba(204,120,92,.24); --accent-text: #DE8E73; --band: rgba(217,213,204,.12); --grid: #2E2C28;
+      --hit: #E5806F; --good-text: #D9D5CC; --warn-text: #E8A55A; --track: #2E2B27;
+      --btn: #FAF9F5; --on-btn: #181715; --tip: #FAF9F5; --on-tip: #181715; --dark: #0C0B0A; --dark-rule: #24221F;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #141311; --panel: #1E1D1A; --panel-line: #2E2C28; --rule: #2B2925; --ink: #FAF9F5; --text: #D9D5CC; --muted: #A09D96; --muted-soft: #8A867E;
+    --accent-soft: rgba(204,120,92,.24); --accent-text: #DE8E73; --band: rgba(217,213,204,.12); --grid: #2E2C28;
+    --hit: #E5806F; --good-text: #D9D5CC; --warn-text: #E8A55A; --track: #2E2B27;
+    --btn: #FAF9F5; --on-btn: #181715; --tip: #FAF9F5; --on-tip: #181715; --dark: #0C0B0A; --dark-rule: #24221F;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  html { height: 100%; }
-  body { margin: 0; padding: 20px; min-height: 100%; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; gap: 16px;
-         font: 18px/1.45 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
-  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; }
-  h1 { font-size: 30px; margin: 0; }
-  .muted { color: var(--muted); }
-  .pill { display: inline-block; padding: 2px 12px; border-radius: 99px; font-size: 16px; border: 1.5px solid currentColor; }
-  .grid { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(300px, 1fr)); gap: 16px; }
-  @media (max-width: 1000px) { .grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: auto; } }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 26px;
-          display: grid; grid-template-rows: auto minmax(150px, 1fr) auto; gap: 12px; min-width: 0; min-height: 0; }
-  .body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; min-height: 0; }
-  @media (max-width: 640px) { .body { grid-template-columns: minmax(0, 1fr); } }
-  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
-  .head h2 { font-size: 30px; margin: 0; white-space: nowrap; }
-  .nums { display: flex; flex-direction: column; gap: 14px; justify-content: center; }
-  .label { font-size: 16px; color: var(--muted); }
-  .big { font-size: clamp(48px, min(5.2vw, 9vh), 104px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-  .mid { font-size: clamp(32px, min(3vw, 5.5vh), 60px); font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; }
-  .then { font-size: 20px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
-  .then b { color: var(--ink); }
-  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
-  .chart { position: relative; min-height: 170px; background: var(--band); border-radius: 12px; }
-  .chart svg { position: absolute; left: 52px; top: 10px; width: calc(100% - 64px); height: calc(100% - 36px); overflow: visible; }
-  .chart .ylab { position: absolute; left: 8px; font-size: 14px; color: var(--muted); transform: translateY(-50%); }
-  .chart .xlab { position: absolute; bottom: 4px; font-size: 14px; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
-  .chart .xlab.end { transform: translateX(-100%); }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip { font-size: 18px; padding: 4px 12px; border-radius: 99px; background: var(--band); }
-  .alerts { display: flex; flex-direction: column; gap: 4px; font-size: 19px; }
-  .alerts div::before { content: "● "; }
-  .empty { color: var(--muted); font-size: 20px; align-self: center; }
-  footer { font-size: 15px; }
-  /* 탭 */
-  .tabs { display: flex; gap: 8px; }
-  .tab { font: inherit; font-size: 18px; padding: 6px 18px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; }
-  .tab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
-  .view[hidden] { display: none; }
-  /* 센서 실측 */
-  #sensors { display: flex; flex-direction: column; gap: 22px; }
-  .space-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0 0 10px; }
-  .space-head h2 { font-size: 26px; margin: 0; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
-  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .tile.stale { border-color: var(--bad); border-width: 2px; }
-  .tile-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-  .tile-head b { font-size: 18px; }
-  .tile-head .sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dot { white-space: nowrap; flex-shrink: 0; }
-  .dot::before { content: "● "; }
-  .vals { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
-  .val .n { font-size: 34px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
-  .val .u { font-size: 14px; color: var(--muted); margin-left: 3px; }
-  .val .k { display: block; font-size: 13px; color: var(--muted); }
-  .val.small .n { font-size: 24px; }
-  .extra { display: flex; flex-wrap: wrap; gap: 6px; }
-  .extra .chip { font-size: 15px; padding: 2px 10px; }
-  .spark { width: 100%; height: 84px; display: block; }
-  /* 공간별 큰 그래프 (센서 여러 대를 한 그래프에) */
-  .bigchart { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px 12px; margin-bottom: 14px; }
-  .bigchart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 8px; }
-  .seg { display: flex; gap: 6px; }
-  .seg button { font: inherit; font-size: 16px; padding: 4px 14px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--band); color: var(--muted); cursor: pointer; }
-  .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .plot { position: relative; height: clamp(220px, 32vh, 340px); }
-  .plot svg { position: absolute; left: 56px; top: 8px; width: calc(100% - 64px); height: calc(100% - 34px); overflow: visible; }
-  .plot .ylab { position: absolute; left: 0; width: 50px; text-align: right; font-size: 14px; color: var(--muted); transform: translateY(-50%); font-variant-numeric: tabular-nums; }
-  .plot .xlab { position: absolute; bottom: 2px; font-size: 14px; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; margin-top: 6px; }
-  .legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; background: var(--c); }
-  .spark-label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
-  @keyframes flash { from { background: color-mix(in srgb, var(--accent) 28%, transparent); } to { background: transparent; } }
-  .flash { animation: flash 1.6s ease-out; border-radius: 6px; }
-  @media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
-  .notice { background: var(--card); border: 1px dashed var(--line); border-radius: 14px; padding: 24px; font-size: 19px; color: var(--muted); }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--ground); color: var(--text); }
+  /* ===== 초안 공통 구조 (Taste 화면 규칙: 첫 블록이 화면의 질문에 답하고, 숫자는 한 곳에만) ===== */
+  .draft { background: var(--ground); color: var(--text); font-family: var(--f-body); font-size: 15px; line-height: 1.5; letter-spacing: var(--body-track, 0); }
+  .draft .in { max-width: 1320px; margin: 0 auto; padding-block: 0 36px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
+  .draft .num { font-variant-numeric: tabular-nums; }
+  .shell { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-block: 14px; border-bottom: 1px solid var(--rule); }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+  .brand svg { width: 30px; height: 18px; flex-shrink: 0; }
+  .brand b { font-size: 14px; font-weight: 600; }
+  .brand span { font-size: 13px; color: var(--muted); }
+  .stamp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+  .stamp .dot::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 6px; vertical-align: 1px; }
+  .btn { font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: var(--r-btn); border: 0; background: var(--btn); color: var(--on-btn); cursor: pointer; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .title h1 { margin: 0; font-family: var(--f-title); font-weight: var(--w-title); font-size: var(--s-title); line-height: 1.15; letter-spacing: var(--t-title); color: var(--ink); text-wrap: balance; }
+  .title p { margin: 6px 0 0; font-size: 16px; color: var(--text); max-width: 72ch; }
+  .title p b { color: var(--hit); font-weight: 600; }
+
+  .main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--gap); align-items: stretch; }
+  @media (max-width: 960px) { .main { grid-template-columns: minmax(0, 1fr); } }
+  .panel { background: var(--panel); border: 1px solid var(--panel-line); border-radius: var(--r-card); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .panel h2 { margin: 0; font-family: var(--f-title); font-weight: var(--w-h2); font-size: 18px; letter-spacing: var(--t-h2); color: var(--ink); }
+  .panel .ph { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .panel .ph span { font-size: 12px; color: var(--muted); }
+
+  /* 환기 순서 */
+  .rows { display: flex; flex-direction: column; }
+  .row { display: grid; grid-template-columns: 116px 92px 72px minmax(140px, 1fr) 118px; gap: 14px; align-items: center; padding: 11px 0; border-top: 1px solid var(--rule); }
+  .row.head { border-top: 0; padding: 0 0 6px; font-size: 12px; color: var(--muted); }
+  .row .r { text-align: right; }
+  .row .nm { font-weight: 600; color: var(--ink); display: flex; flex-direction: column; }
+  .row .nm small { font-weight: 400; font-size: 12px; color: var(--muted); }
+  .row .nm small::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; background: var(--lv); vertical-align: 1px; }
+  .row .co2 { font-size: 22px; color: var(--ink); font-weight: var(--w-fig); line-height: 1.1; }
+  .row .co2 small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+  .row .chg { font-size: 13px; }
+  .bad-n { color: var(--hit); } .good-n { color: var(--good-text); } .flat-n { color: var(--muted); }
+  .row .when { font-size: 13px; text-align: right; }
+  .row .when b { color: var(--hit); font-weight: 600; }
+  .row .when span { color: var(--muted); }
+  .track { position: relative; height: 22px; }
+  .track .base { position: absolute; left: 0; right: 0; top: 9px; height: 4px; background: var(--track); border-radius: var(--r-track); }
+  .track .fill { position: absolute; left: 0; top: 9px; height: 4px; background: var(--ink); border-radius: var(--r-track); }
+  .track .fc { position: absolute; top: 10px; height: 2px; background: var(--accent); }
+  .track .fcm { position: absolute; top: 4px; width: 2px; height: 14px; background: var(--accent); }
+  .track .lim { position: absolute; top: 2px; width: 1px; height: 18px; background: var(--hit); }
+  .row.head .track { height: auto; }
+  @media (max-width: 640px) {
+    .row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+    .row.head { display: none; }
+    .row .co2 { grid-column: 2; grid-row: 1; text-align: right; }
+    .row .chg { grid-column: 2; grid-row: 2; text-align: right; }
+    .row .track { grid-column: 1 / -1; }
+    .row .when { grid-column: 1 / -1; text-align: left; }
+  }
+
+  /* 경보 */
+  .alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .alerts li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 9px 0; border-top: 1px solid var(--rule); font-size: 14px; }
+  .alerts li:first-child { border-top: 0; padding-top: 0; }
+  .alerts .lv { font-size: 12px; font-weight: 600; }
+  .alerts .lv.w { color: var(--warn-text); } .alerts .lv.i { color: var(--muted); }
+  .alerts .sp { display: block; font-size: 12px; color: var(--muted); }
+
+  /* 공간 상세 */
+  .detail { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px 24px; }
+  @media (max-width: 960px) { .detail { grid-template-columns: minmax(0, 1fr); } }
+  .chart { position: relative; height: 250px; touch-action: pan-y; }
+  .chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .chart .tip { position: absolute; top: 30px; pointer-events: none; background: var(--tip); color: var(--on-tip); border-radius: var(--r-btn); font-size: 12px; padding: 7px 10px; white-space: nowrap; display: flex; flex-direction: column; gap: 1px; z-index: 2; font-variant-numeric: tabular-nums; }
+  .chart .tip .t { opacity: .75; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 14px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; vertical-align: middle; margin-right: 5px; }
+  .legend i.ln { border-top: 2px solid var(--ink); } .legend i.rg { height: 8px; background: var(--band); }
+  .legend i.fc { border-top: 2px dashed var(--accent); } .legend i.fr { height: 8px; background: var(--accent-soft); }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--track); border-radius: var(--r-btn); }
+  .seg button { font: inherit; font-size: 13px; padding: 3px 12px; border: 0; border-radius: var(--r-btn); background: transparent; color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); font-weight: 500; }
+  .side { display: flex; flex-direction: column; gap: 14px; }
+  .kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .kv div { display: flex; flex-direction: column; }
+  .kv .k { font-size: 12px; color: var(--muted); }
+  .kv .v { font-size: 24px; font-weight: var(--w-fig); color: var(--ink); line-height: 1.2; }
+  .kv .v small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+  .kv .s { font-size: 12px; color: var(--muted); }
+  .meter { display: flex; flex-direction: column; gap: 5px; }
+  .meter .k { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .meter .k b { color: var(--ink); font-weight: 500; }
+  .meter .t { position: relative; height: 6px; background: var(--track); border-radius: var(--r-track); }
+  .meter .t i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); border-radius: var(--r-track); }
+  .meter .t i.w { background: var(--warn); }
+  .meter .t s { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); }
+  .note { font-size: 12px; color: var(--muted); }
+
+  .row .co2, .kv .v { font-family: var(--f-title); }
+  .panel.dark { background: var(--dark); border-color: var(--dark); color: var(--on-dark); --ink: var(--on-dark); --text: var(--on-dark); --muted: var(--on-dark-soft); --rule: var(--dark-rule); --warn-text: #E8A55A; }
+  .row { cursor: pointer; }
+  .row:not(.head):hover .nm { text-decoration: underline; text-underline-offset: 3px; }
+  .spaces { display: flex; flex-direction: column; gap: var(--gap); }
+  .spaces > h2, .sensors > .ph h2 { margin: 8px 0 0; font-family: var(--f-title); font-weight: 400; font-size: 24px; color: var(--ink); letter-spacing: -.01em; }
+  .panel.space { scroll-margin-top: 12px; }
+  .panel.space .ph h2 { font-size: 22px; }
+  .panel.space .ph .lvl { font-size: 13px; color: var(--muted); margin-left: 10px; font-family: var(--f-body); }
+  .panel.space .ph .lvl::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--lv); margin-right: 5px; vertical-align: 1px; }
+  .panel.space.alerting { border-color: var(--warn); }
+  .panel.space.critical { border-color: var(--hit); }
+  .kv .v.big { font-size: 34px; }
+
+  /* 센서 표: 선만 있는 표 */
+  .sensors { display: flex; flex-direction: column; gap: 10px; }
+  .sensors .ph { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .sensors .ph span { font-size: 13px; color: var(--muted); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 900px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 12px; font-weight: 400; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--muted); white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; vertical-align: middle; color: var(--text); }
+  td.r, th.r { text-align: right; }
+  tr.group td { font-family: var(--f-title); font-size: 17px; color: var(--ink); padding: 18px 10px 6px; border-bottom: 1px solid var(--panel-line); }
+  tr.group td span { font-family: var(--f-body); font-size: 12px; color: var(--muted); }
+  tr.stale td { color: var(--muted-soft); }
+  tr.stale td.state { color: var(--hit); font-weight: 600; }
+  td .id { display: block; font-size: 11px; color: var(--muted-soft); }
+  .spark { width: 120px; height: 26px; display: block; }
+  .bat { display: inline-flex; align-items: center; gap: 6px; }
+  .bat .cell { width: 26px; height: 10px; border: 1.5px solid var(--muted); border-radius: 2px; position: relative; }
+  .bat .cell::after { content: ""; position: absolute; right: -4px; top: 2px; width: 2px; height: 4px; background: var(--muted); }
+  .bat .cell i { position: absolute; left: 1px; top: 1px; bottom: 1px; background: var(--muted); }
+  .bat.low { color: var(--hit); font-weight: 600; } .bat.low .cell i { background: var(--hit); }
+  @media (max-width: 640px) {
+    table { min-width: 0; }
+    thead { display: none; }
+    tr:not(.group) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+    tr:not(.group) td { border: 0; padding: 0; }
+    tr:not(.group) td.c-name { grid-column: 1; }
+    tr:not(.group) td.c-state { grid-column: 2; grid-row: 1; text-align: right; }
+    tr:not(.group) td.c-vals { grid-column: 1 / -1; display: block; font-size: 13px; color: var(--muted); }
+    tr:not(.group) td.c-hide { display: none; }
+    tr.group { display: block; } tr.group td { display: block; }
+  }
+  td.c-vals { display: none; }
+  footer { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--panel-line); padding-top: 14px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>교육장 공기 상태</h1>
-  <span id="meta" class="muted">불러오는 중…</span>
-  <span id="health" class="pill">-</span>
-  <label class="muted" style="margin-left:auto;font-size:16px;display:flex;align-items:center;gap:6px">새로고침
-    <select id="interval" style="font:inherit;font-size:16px;padding:4px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink)">
-      <option value="1">1초</option><option value="10">10초</option><option value="30">30초</option>
-      <option value="60">1분</option><option value="600">10분</option><option value="1800">30분</option>
-    </select></label>
-  <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" id="tab-model" aria-selected="true" data-view="model">모델 판단</button>
-    <button class="tab" role="tab" id="tab-sensors" aria-selected="false" data-view="sensors">센서 실측</button>
-  </nav>
-</header>
-<section id="view-model" class="view" role="tabpanel" aria-labelledby="tab-model" style="display:contents">
-  <div id="spaces" class="grid"></div>
-  <footer class="muted">매분 계산 · 5분 칸 기준 · 그래프는 지금부터 60분 CO₂ 예측 (빨간 점선 = 1,000 ppm) · 값은 5분 칸마다 바뀜 · 원본 <code>/v1/spaces</code></footer>
-</section>
-<section id="view-sensors" class="view" role="tabpanel" aria-labelledby="tab-sensors" hidden>
-  <div id="sensors"><div class="notice">불러오는 중…</div></div>
-  <footer class="muted" style="margin-top:16px">센서가 보낸 값 그대로 · 작은 그래프는 최근 3시간 5분 평균 · 빨간 테두리 = 끊김 · 센서는 1~10분마다 값을 보냄 · 원본 <code>/v1/sensors</code></footer>
-</section>
+
+<div class="draft" id="draft"></div>
+
 <script>
-const fmt = (v, d = 0) => v == null || Number.isNaN(Number(v)) ? "–" : Number(v).toFixed(d);
-const kst = iso => iso ? new Date(iso).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" }) : "–";
-const arrow = (a, b) => b == null || a == null ? "" : b > a + 0.5 ? "↑" : b < a - 0.5 ? "↓" : "→";
+(() => {
+  const MIN = 60000;
+  const UNIT = { co2: "ppm", temperature: "℃", humidity: "%RH" };
+  const LABEL = { co2: "CO₂", temperature: "온도", humidity: "습도" };
+  const ORDER = ["lab", "office", "meeting", "office-out"];
+  // ---------- 예시 데이터 (docs/interface.md §3.1·§4 형식) ----------
+  function iso(t) { return new Date(t).toISOString().replace(/\.\d{3}Z$/, "Z"); }
+  function rnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
-function chart(fc) {
-  if (!fc) return `<div class="chart" style="display:grid;place-items:center"><div class="empty">예측 없음</div></div>`;
-  const vals = [fc.now, ...fc.points.map(p => p.value)];
-  const lo = Math.floor(Math.min(...vals, 450) / 50) * 50, hi = Math.ceil(Math.max(...vals, 1050) / 50) * 50;
-  const H = 100, x = i => (i / 12) * 100, y = v => H - ((v - lo) / (hi - lo)) * H;
-  const path = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
-  const area = `${path} L100,${H} L0,${H} Z`;
-  const pct = v => `${(y(v) / H) * 100}%`;
-  return `<div class="chart">
-    <svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-label="CO₂ 60분 예측: 지금 ${fmt(fc.now)}, 60분 뒤 ${fmt(fc.points[11].value)} ppm">
-      <path d="${area}" fill="var(--accent)" fill-opacity="0.12" stroke="none"/>
-      <line x1="0" x2="100" y1="${y(1000)}" y2="${y(1000)}" stroke="var(--bad)" stroke-dasharray="1.5 1.5" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
-      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="3" vector-effect="non-scaling-stroke"/>
-      <circle cx="0" cy="${y(fc.now)}" r="1.2" fill="var(--accent)"/>
-    </svg>
-    ${(hi - 1000) / (hi - lo) > 0.12 ? `<span class="ylab" style="top:calc(10px + (100% - 36px) * ${(y(hi) / H)})">${hi}</span>` : ""}
-    <span class="ylab bad" style="top:calc(10px + (100% - 36px) * ${(y(1000) / H)})">1000</span>
-    <span class="ylab" style="top:calc(10px + (100% - 36px) * ${(y(lo) / H)})">${lo}</span>
-    <span class="xlab" style="left:calc(52px + (100% - 64px) * 0)">지금</span>
-    <span class="xlab" style="left:calc(52px + (100% - 64px) * 0.5)">30분</span>
-    <span class="xlab end" style="left:calc(52px + (100% - 64px) * 1)">60분</span>
-  </div>`;
-}
+  function sample() {
+    const now = Date.now();
+    const slot = Math.floor(now / (5 * MIN)) * 5 * MIN;
+    const start = slot - 180 * MIN;
+    const n = 37;
+    const r = rnd(42);
+    const jitter = (a) => (r() - .5) * 2 * a;
+    // 실습실: 수업 중 상승, 1시간 40분 전 쉬는 시간 환기로 떨어졌다가 다시 오름
+    const labCo2 = i => { const m = i * 5; let v = m < 70 ? 560 + m * 3.6 : m < 85 ? 812 - (m - 70) * 14 : 602 + (m - 85) * 2.6; return v; };
+    const series = (fn, a, dec = 0, every = 1) => Array.from({ length: n }, (_, i) => i % every ? null : +(fn(i) + jitter(a)).toFixed(dec));
+    const fc = (now0, f) => Array.from({ length: 12 }, (_, k) => ({ minutes: (k + 1) * 5, value: +f((k + 1) * 5).toFixed(1) }));
 
-function card(s) {
-  const co2 = s.forecast && s.forecast.co2, t = s.forecast && s.forecast.temperature;
-  const st = s.state || {}, an = s.anomaly || {};
-  const co2cls = co2 ? (co2.now >= 1000 ? "bad" : co2.now >= 800 ? "warn" : "ok") : "muted";
-  const co2then = co2 ? co2.points[11].value : null, tthen = t ? t.points[11].value : null;
-  const alive = s.sensors.total - s.sensors.stale.length;
-  const chips = [
-    `<span class="chip">사용 ${st.occupied == null ? "–" : `${st.occupied ? "중" : "안 함"} ${fmt(st.occupied_probability * 100)}%`}</span>`,
-    `<span class="chip ${an.is_anomaly ? "bad" : ""}">이상 ${an.score == null ? "–" : an.is_anomaly ? `의심 (${an.cause})` : "정상"}</span>`,
-    st.ventilation_probability != null ? `<span class="chip ${st.ventilation_alert ? "warn" : ""}">환기 ${st.ventilation_alert ? "필요" : "괜찮음"}</span>` : "",
-  ].join("");
-  const alerts = (s.alerts || []).map(a => `<div class="${a.level === "warning" ? "warn" : "muted"}">${a.message}</div>`).join("");
-  return `<section class="card" aria-label="${s.space}">
-    <div class="head"><h2>${s.space}</h2><span class="muted">센서 ${alive}/${s.sensors.total} · 마지막 ${kst(s.sensors.last_seen)}</span></div>
-    <div class="body">
-    <div class="nums">
-      <div><div class="label">CO₂ ppm</div><div class="big ${co2cls}" ${co2 ? `data-k="${s.slug}:co2" data-v="${co2.now}" data-d="0"` : ""}>${co2 ? fmt(co2.now) : "–"}</div>
-        <div class="then">60분 뒤 <b>${fmt(co2then)}</b> ${arrow(co2 && co2.now, co2then)}</div></div>
-      <div><div class="label">온도 ℃</div><div class="mid" ${t ? `data-k="${s.slug}:temperature" data-v="${t.now}" data-d="1"` : ""}>${t ? fmt(t.now, 1) : "–"}</div>
-        <div class="then">60분 뒤 <b>${fmt(tthen, 1)}</b> ${arrow(t && t.now, tthen)}</div></div>
-    </div>
-    ${chart(co2)}
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <div class="chips">${chips}</div>
-      ${alerts ? `<div class="alerts">${alerts}</div>` : `<div class="ok" style="font-size:19px">경보 없음</div>`}
-      ${s.forecast_unavailable ? `<div class="muted">예측 없음: ${s.forecast_unavailable}</div>` : ""}
-    </div>
-  </section>`;
-}
-
-async function refresh() {
-  try {
-    const [res, health] = await Promise.all([fetch("/v1/spaces"), fetch("/health")]);
-    const h = await health.json();
-    const el = document.getElementById("health");
-    el.textContent = h.status === "ok" ? "서비스 정상" : "멈춤/지연";
-    el.className = "pill " + (h.status === "ok" ? "ok" : "bad");
-    if (!res.ok) return;
-    const data = await res.json();
-    document.getElementById("meta").textContent =
-      `기준 ${kst(data.slot)} · 계산 ${kst(data.generated_at)} · 모델 ${(h.models || {}).forecast || "-"}`;
-    smooth(() => patch(document.getElementById("spaces"), data.spaces.map(sp => ({ key: sp.slug, html: card(sp) }))));
-  } catch (e) {
-    document.getElementById("meta").textContent = "서비스에 연결할 수 없음";
-  }
-}
-// ---------- 센서 실측 ----------
-const LABELS = {
-  co2: ["CO₂", "ppm", 0], temperature: ["온도", "℃", 1], humidity: ["습도", "%", 0], battery: ["배터리", "%", 0],
-  tvoc: ["TVOC", "ppb", 0], pressure: ["기압", "hPa", 1], illumination: ["조도", "lux", 0], light_level: ["조도 단계", "", 0],
-  LAeq: ["소음 평균", "dB", 1], LAI: ["소음", "dB", 1], LAImax: ["최대 소음", "dB", 1], la: ["소음", "dB", 1], laeq: ["소음 평균", "dB", 1], lamax: ["최대 소음", "dB", 1],
-  activity: ["움직임", "", 0], pir: ["움직임", "", 0], infrared: ["적외선", "", 0], infrared_and_visible: ["가시광+적외선", "", 0],
-};
-const MAIN = ["co2", "temperature", "humidity"];
-const label = k => LABELS[k] || [k, "", 2];
-const ago = m => m == null ? "–" : m < 1 ? `${Math.max(0, Math.round(m * 60))}초 전` : m < 60 ? `${Math.round(m)}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : `${Math.floor(m / 1440)}일 전`;
-const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-const PALETTE = ["#2b6cb0", "#dd6b20", "#2f855a", "#805ad5", "#d53f8c", "#319795", "#718096"];
-let sensorData = null, lastSensorText = null;
-const spaceMetric = {};                       // 공간별로 큰 그래프에 보여 줄 항목 (버튼으로 바꿈)
-
-function niceRange(vs, metric) {
-  let lo = Math.min(...vs), hi = Math.max(...vs);
-  const minSpan = metric === "co2" ? 100 : metric === "temperature" ? 2 : 6;
-  if (hi - lo < minSpan) { const mid = (hi + lo) / 2; lo = mid - minSpan / 2; hi = mid + minSpan / 2; }
-  const pad = (hi - lo) * 0.08;
-  return [lo - pad, hi + pad];
-}
-
-// series: [{name, color, values}] — values는 5분 칸 평균 (null = 빈 칸)
-function plot(series, metric, opts = {}) {
-  const all = series.flatMap(s => s.values.filter(v => v != null));
-  if (all.length < 2) return `<div class="plot" style="display:grid;place-items:center"><span class="muted">그래프로 그릴 값이 아직 부족함</span></div>`;
-  const n = Math.max(...series.map(s => s.values.length)) - 1;
-  const [lo, hi] = niceRange(metric === "co2" && opts.limit ? [...all, Math.min(Math.max(...all) + 50, 1000)] : all, metric);
-  const H = 100, x = i => (i / n) * 100, y = v => H - ((v - lo) / (hi - lo)) * H;
-  const [, unit, dec] = label(metric);
-  const paths = series.map(s => {
-    // 빈 칸이 3칸(15분) 이하면 이어 그린다 (10분 간격 센서는 5분 칸이 하나씩 빈다). 더 길면 끊어서 끊김이 보이게
-    let d = "", lastI = null;
-    s.values.forEach((v, i) => { if (v == null) return; d += `${lastI !== null && i - lastI <= 4 ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)} `; lastI = i; });
-    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${opts.thin ? 2 : 2.6}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
-  }).join("");
-  const ticks = [lo, (lo + hi) / 2, hi];
-  const grid = ticks.map(t => `<line x1="0" x2="100" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join("");
-  const limit = metric === "co2" && 1000 > lo && 1000 < hi
-    ? `<line x1="0" x2="100" y1="${y(1000)}" y2="${y(1000)}" stroke="var(--bad)" stroke-dasharray="4 4" stroke-width="1.5" vector-effect="non-scaling-stroke"/>` : "";
-  const top = v => `calc(8px + (100% - 34px) * ${y(v) / H})`;
-  const left = f => `calc(56px + (100% - 64px) * ${f})`;
-  const hours = opts.minutes / 60, xl = [];
-  for (let h = hours; h >= 0; h -= 1) if (!opts.compact || h === hours || h === 0) xl.push([1 - h / hours, h === 0 ? "지금" : `${h}시간 전`]);
-  return `<div class="plot" ${opts.height ? `style="height:${opts.height}px"` : ""}>
-    <svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" aria-label="${label(metric)[0]} 최근 ${hours}시간">${grid}${limit}${paths}</svg>
-    ${ticks.map(t => `<span class="ylab" style="top:${top(t)}">${fmt(t, metric === "co2" ? 0 : dec)}</span>`).join("")}
-    ${limit ? `<span class="ylab bad" style="top:${top(1000)}">1000</span>` : ""}
-    ${xl.map(([f, t]) => `<span class="xlab" style="left:${left(f)};${f === 0 ? "transform:none" : f === 1 ? "transform:translateX(-100%)" : ""}">${t}</span>`).join("")}
-  </div>`;
-}
-
-function spaceChart(g, minutes) {
-  const available = MAIN.filter(k => g.sensors.some(d => (d.history || {})[k]));
-  if (!available.length) return "";
-  const metric = available.includes(spaceMetric[g.space]) ? spaceMetric[g.space] : available[0];
-  const series = g.sensors.filter(d => (d.history || {})[metric])
-    .map((d, i) => ({ name: d.spot || d.device_id, color: PALETTE[i % PALETTE.length], values: d.history[metric] }));
-  const last = series.map(s => [...s.values].reverse().find(v => v != null)).filter(v => v != null);
-  const [name, unit, dec] = label(metric);
-  return `<div class="bigchart">
-    <div class="bigchart-head"><b style="font-size:19px">${name}${unit ? ` (${unit})` : ""} · 최근 ${minutes / 60}시간 ${last.length ? `<span class="muted" style="font-weight:400">지금 ${fmt(Math.min(...last), dec)}${last.length > 1 ? `~${fmt(Math.max(...last), dec)}` : ""} ${unit}</span>` : ""}</b>
-      <div class="seg" role="group" aria-label="그래프 항목">${available.map(k => `<button aria-pressed="${k === metric}" data-space="${esc(g.space)}" data-metric="${k}">${label(k)[0]}</button>`).join("")}</div></div>
-    ${plot(series, metric, { minutes, limit: true })}
-    <div class="legend">${series.map(s => `<span style="--c:${s.color}">${esc(s.name)}</span>`).join("")}</div>
-  </div>`;
-}
-
-function spark(values, metric) {
-  if (!values || values.filter(v => v != null).length < 2) return "";
-  return `<div class="label" style="font-size:13px">${label(metric)[0]} ${label(metric)[1]}</div>` +
-    plot([{ name: "", color: "var(--accent)", values }], metric, { minutes: 180, height: 120, thin: true, compact: true });
-}
-
-function valueBox(metric, m, small, device) {
-  const [name, unit, dec] = label(metric);
-  const cls = metric === "co2" ? (m.value >= 1000 ? "bad" : m.value >= 800 ? "warn" : "ok") : "";
-  return `<div class="val ${small ? "small" : ""}"><span class="k">${name}</span><span class="n ${cls}" data-k="${esc(device)}:${metric}" data-v="${m.value}" data-d="${dec}">${fmt(m.value, dec)}</span><span class="u">${unit}</span></div>`;
-}
-
-function tile(d) {
-  const ms = d.metrics || {};
-  const main = MAIN.filter(k => ms[k]);
-  const rest = Object.keys(ms).filter(k => !MAIN.includes(k)).sort((a, b) => (a === "battery") - (b === "battery") || a.localeCompare(b));
-  const age = `<span class="age" data-since="${esc(d.last_seen)}"></span>`;
-  const status = d.kind === "event" ? `<span class="muted dot">사건형 · ${age}</span>`
-    : d.stale ? `<span class="bad dot">끊김 · ${age}</span>` : `<span class="ok dot">${age}</span>`;
-  const extra = rest.map(k => {
-    const [name, unit, dec] = label(k), v = ms[k].value;
-    const warn = k === "battery" && v <= 20 ? "bad" : "";
-    return `<span class="chip ${warn}">${name} ${fmt(v, dec)}${unit ? " " + unit : ""}</span>`;
-  }).join("");
-  const sparkMetric = ["co2", "temperature", "humidity"].find(k => (d.history || {})[k]);
-  return `<article class="tile ${d.stale ? "stale" : ""}" aria-label="${esc(d.spot || d.device_id)}">
-    <div class="tile-head"><div style="min-width:0"><b>${esc(d.spot || "위치 없음")}</b><div class="sub">${esc(d.profile || "")} · ${esc(d.device_id)}</div></div>${status}</div>
-    ${main.length ? `<div class="vals">${main.map((k, i) => valueBox(k, ms[k], i > 0, d.device_id)).join("")}</div>` : ""}
-    ${extra ? `<div class="extra">${extra}</div>` : ""}
-    ${sparkMetric ? spark(d.history[sparkMetric], sparkMetric) : ""}
-  </article>`;
-}
-
-async function refreshSensors() {
-  const box = document.getElementById("sensors");
-  try {
-    const res = await fetch("/v1/sensors");
-    if (res.status === 404) { box.innerHTML = `<div class="notice">센서 실측 화면은 서비스를 새 버전으로 다시 시작한 뒤에 보입니다.</div>`; return; }
-    if (!res.ok) { box.innerHTML = `<div class="notice">센서 값을 읽지 못했습니다 (${res.status}).</div>`; return; }
-    const text = await res.text();
-    if (text === lastSensorText) return;          // 서버가 같은 값을 주면(5초 재사용) 화면을 건드리지 않는다
-    lastSensorText = text;
-    sensorData = JSON.parse(text);
-    renderSensors();
-  } catch (e) {
-    box.innerHTML = `<div class="notice">서비스에 연결할 수 없음</div>`;
-  }
-}
-
-// ---------- 부드러운 갱신: 바뀐 조각만 바꾸고, 바뀐 숫자는 이전 값에서 굴러가듯 ----------
-function patch(box, items) {
-  const old = new Map([...box.children].filter(e => e.dataset.key).map(e => [e.dataset.key, e]));
-  [...box.children].forEach(e => { if (!e.dataset.key) e.remove(); });
-  let prev = null;
-  for (const { key, html } of items) {
-    let el = old.get(key);
-    if (!el || el.dataset.html !== html) {
-      const t = document.createElement("template");
-      t.innerHTML = html.trim();
-      const node = t.content.firstElementChild;
-      node.dataset.key = key;
-      node.dataset.html = html;
-      if (el) el.replaceWith(node);
-      el = node;
-    }
-    old.delete(key);
-    const want = prev ? prev.nextElementSibling : box.firstElementChild;
-    if (want !== el) box.insertBefore(el, want);
-    prev = el;
-  }
-  old.forEach(e => e.remove());
-}
-
-const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-function smooth(update) {
-  const before = new Map([...document.querySelectorAll("[data-k]")].map(e => [e.dataset.k, Number(e.dataset.v)]));
-  update();
-  for (const el of document.querySelectorAll("[data-k]")) {
-    const from = before.get(el.dataset.k), to = Number(el.dataset.v), dec = Number(el.dataset.d) || 0;
-    if (from === undefined || Number.isNaN(from) || from.toFixed(dec) === to.toFixed(dec) || el.dataset.animating) continue;
-    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
-    if (reduceMotion) continue;
-    el.dataset.animating = "1";
-    const t0 = performance.now();
-    const step = now => {
-      const p = Math.min(1, (now - t0) / 700), e = 1 - Math.pow(1 - p, 3);
-      el.textContent = fmt(from + (to - from) * e, dec);
-      if (p < 1) requestAnimationFrame(step); else delete el.dataset.animating;
+    const sensors = {
+      generated_at: iso(now),
+      history: { start: iso(start), bucket_minutes: 5, buckets: n, metrics: ["co2", "temperature", "humidity"] },
+      spaces: [
+        { space: "실습실", slug: "lab", total: 5, stale: 1, sensors: [
+          s("24e124707d1a0021", "AM107", "전방 오른쪽", now - 4 * MIN, { co2: 861, temperature: 23.4, humidity: 41.2, battery: 88, tvoc: 182, pressure: 1012.6, illumination: 412 },
+            { co2: series(i => labCo2(i) + 12, 4, 0, 2), temperature: series(i => 22.1 + i * .035, .05, 1, 2), humidity: series(i => 39.5 + i * .05, .2, 1, 2) }),
+          s("24e124707d1a0034", "AM107", "후면 오른쪽", now - .6 * MIN, { co2: 842, temperature: 23.1, humidity: 40.8, battery: 92, tvoc: 164, pressure: 1012.4, illumination: 388 },
+            { co2: series(i => labCo2(i) - 8, 6), temperature: series(i => 21.9 + i * .034, .05, 1), humidity: series(i => 39.2 + i * .045, .2, 1) }),
+          s("24e124136d2b7710", "EM500-CO2", "중앙", now - 1.4 * MIN, { co2: 855, temperature: 23.0, humidity: 41.0, battery: 76, pressure: 1012.5 },
+            { co2: series(i => labCo2(i), 5, 0, 2), temperature: series(i => 21.8 + i * .035, .05, 1, 2), humidity: series(i => 39.4 + i * .045, .2, 1, 2) }),
+          s("24e124710b3c4402", "AM103", "전방 왼쪽", now - 23 * MIN, { co2: 790, temperature: 22.6, humidity: 40.1, battery: 9 },
+            { co2: series(i => i > 32 ? NaN : labCo2(i) - 15, 5), temperature: series(i => i > 32 ? NaN : 21.7 + i * .03, .05, 1), humidity: series(i => i > 32 ? NaN : 39 + i * .04, .2, 1) }),
+          s("24e124785c389818", "EM320-TH", null, now - .3 * MIN, { temperature: 23.2, humidity: 41.4, battery: 95 },
+            { temperature: series(i => 22 + i * .034, .05, 1), humidity: series(i => 39.6 + i * .05, .2, 1) }),
+        ] },
+        { space: "사무실", slug: "office", total: 2, stale: 0, sensors: [
+          s("24e124710b3c5108", "AM103", "창가", now - .8 * MIN, { co2: 624, temperature: 24.1, humidity: 38.6, battery: 81 },
+            { co2: series(i => 655 - i * .9 + Math.sin(i / 4) * 12, 6), temperature: series(i => 23.6 + i * .013, .05, 1), humidity: series(i => 37.9 + i * .02, .2, 1) }),
+          s("24e124783a2f0911", "EM300-TH", "문 옆", now - .2 * MIN, { temperature: 24.4, humidity: 38.1, battery: 67 },
+            { temperature: series(i => 23.9 + i * .013, .05, 1), humidity: series(i => 37.5 + i * .02, .2, 1) }),
+        ] },
+        { space: "회의실", slug: "meeting", total: 1, stale: 0, sensors: [
+          s("24e124710b3c6620", "AM103", "테이블", now - 7 * MIN, { co2: 478, temperature: 22.2, humidity: 44.3, battery: 58 },
+            { co2: series(i => i < 14 ? 720 - i * 12 : 552 - Math.min(i - 14, 12) * 6, 4, 0, 2), temperature: series(i => 22.9 - i * .02, .05, 1, 2), humidity: series(i => 45.1 - i * .02, .2, 1, 2) }),
+        ] },
+        { space: "사무실 밖", slug: "office-out", total: 1, stale: 0, sensors: [
+          s("24e124783a2f1204", "EM300-TH", "복도", now - .5 * MIN, { temperature: 19.6, humidity: 52.4, battery: 73 },
+            { temperature: series(i => 20.4 - i * .022, .06, 1), humidity: series(i => 51.2 + i * .033, .25, 1) }),
+        ] },
+      ],
     };
-    requestAnimationFrame(step);
-  }
-  tick();
-}
-
-function tick() {      // 'N초 전'은 브라우저가 1초마다 세어 올린다 (보드 부하 없음)
-  for (const el of document.querySelectorAll(".age[data-since]")) el.textContent = ago((Date.now() - Date.parse(el.dataset.since)) / 60000);
-}
-
-function renderSensors() {
-  const box = document.getElementById("sensors"), data = sensorData;
-  const minutes = Math.round((data.history.buckets - 1) * data.history.bucket_minutes / 60) * 60 || 180;
-  if (!data.spaces.length) { box.innerHTML = `<div class="notice">최근 들어온 센서 값이 없습니다.</div>`; return; }
-  smooth(() => {
-    patch(box, data.spaces.map(g => ({ key: g.space, html: `<section aria-label="${esc(g.space)}">
-      <div class="space-head"><h2>${esc(g.space)}</h2><span class="muted">센서 ${g.total - g.stale}/${g.total} 수신 중${g.stale ? ` · <span class="bad">끊김 ${g.stale}</span>` : ""}</span></div>
-      <div class="chart-slot"></div><div class="tiles"></div></section>` })));
-    for (const g of data.spaces) {
-      const sec = [...box.children].find(e => e.dataset.key === g.space);
-      const chart = spaceChart(g, minutes);
-      patch(sec.querySelector(".chart-slot"), chart ? [{ key: "chart", html: chart }] : []);
-      patch(sec.querySelector(".tiles"), g.sensors.map(d => ({ key: d.device_id, html: tile(d) })));
+    function s(id, profile, spot, seen, metrics, history) {
+      const m = {};
+      for (const [k, v] of Object.entries(metrics)) m[k] = { value: v, unit: { co2: "ppm", temperature: "°C", humidity: "%", battery: "%", tvoc: "ppb", pressure: "hPa", illumination: "lux" }[k], at: iso(seen) };
+      for (const k of Object.keys(history)) history[k] = history[k].map(v => Number.isNaN(v) ? null : v);
+      const age = (now - seen) / MIN;
+      const limit = Math.max((["24e124707d1a0021", "24e124710b3c6620"].includes(id) ? 10 : profile === "EM500-CO2" ? 2 : 1) * 3, 5);
+      return { device_id: id, profile, spot, last_seen: iso(seen), age_minutes: +age.toFixed(1), kind: "periodic", stale: age > limit, metrics: m, history };
     }
+
+    const spaces = [
+      { space: "실습실", slug: "lab", slot: iso(slot),
+        sensors: { total: 5, stale: ["24e124710b3c4402"], last_seen: iso(now - .3 * MIN) },
+        forecast: { co2: { now: 853, as_of: iso(slot), points: fc(853, m => 853 + m * 2.75 + Math.sin(m / 9) * 4) },
+                    temperature: { now: 23.2, as_of: iso(slot), points: fc(23.2, m => 23.2 + m * .012) } },
+        forecast_unavailable: null,
+        anomaly: { score: .95, threshold: 2.31, is_anomaly: false, cause: null, by_metric: { co2: .88, temperature: 1.02, humidity: .71 } },
+        rules: [],
+        state: { occupied: true, occupied_probability: .93, ventilation_alert: true, ventilation_probability: .88, co2_over_limit_now: false },
+        monitor: { co2: { mae_60: 41.8, n: 214 }, temperature: { mae_60: .31, n: 214 } },
+        alerts: [
+          { type: "co2_forecast", level: "warning", minutes: 55, message: "55분 뒤 CO₂ 1,000 ppm 초과 예상" },
+          { type: "ventilation", level: "warning", message: "곧 환기 필요 (30분 안 1,000 ppm)" },
+          { type: "sensor_gap", level: "info", message: "센서 1대 끊김 (전방 왼쪽 AM103, 23분째). 나머지 센서로 계산 중" },
+        ] },
+      { space: "사무실", slug: "office", slot: iso(slot),
+        sensors: { total: 2, stale: [], last_seen: iso(now - .2 * MIN) },
+        forecast: { co2: { now: 622, as_of: iso(slot), points: fc(622, m => 622 - m * .35) },
+                    temperature: { now: 24.2, as_of: iso(slot), points: fc(24.2, m => 24.2 + m * .004) } },
+        forecast_unavailable: null,
+        anomaly: { score: .62, threshold: 2.31, is_anomaly: false, cause: null, by_metric: { co2: .55, temperature: .7, humidity: .6 } },
+        rules: [],
+        state: { occupied: true, occupied_probability: .71, ventilation_alert: false, ventilation_probability: .04, co2_over_limit_now: false },
+        monitor: { co2: { mae_60: 22.4, n: 214 }, temperature: { mae_60: .22, n: 214 } },
+        alerts: [] },
+      { space: "회의실", slug: "meeting", slot: iso(slot),
+        sensors: { total: 1, stale: [], last_seen: iso(now - 7 * MIN) },
+        forecast: { co2: { now: 481, as_of: iso(slot), points: fc(481, m => 481 - m * .25) },
+                    temperature: { now: 22.2, as_of: iso(slot), points: fc(22.2, m => 22.2 - m * .003) } },
+        forecast_unavailable: null,
+        anomaly: { score: .41, threshold: 2.31, is_anomaly: false, cause: null, by_metric: { co2: .38, temperature: .45, humidity: .4 } },
+        rules: [],
+        state: { occupied: false, occupied_probability: .08, ventilation_alert: false, ventilation_probability: .01, co2_over_limit_now: false },
+        monitor: { co2: { mae_60: 30.1, n: 198 }, temperature: { mae_60: .27, n: 198 } },
+        alerts: [] },
+      { space: "사무실 밖", slug: "office-out", slot: iso(slot),
+        sensors: { total: 1, stale: [], last_seen: iso(now - .5 * MIN) },
+        forecast: { temperature: { now: 19.6, as_of: iso(slot), points: fc(19.6, m => 19.6 - m * .006) } },
+        forecast_unavailable: "CO₂ 센서 없음",
+        anomaly: { score: .58, threshold: 2.31, is_anomaly: false, cause: null, by_metric: { co2: null, temperature: .6, humidity: .55 } },
+        rules: [],
+        state: null,
+        monitor: { temperature: { mae_60: .35, n: 214 } },
+        alerts: [] },
+    ];
+    return { live: false, status: { status: "online", cycle_ms: 412 }, spaces: { spaces, stale: false }, sensors };
+  }
+
+  // ---------- 데이터 읽기: 보드의 서비스에서 열면 실데이터, 아니면 예시 ----------
+  async function getJSON(path) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 4000);
+    try {
+      const res = await fetch(path, { signal: ctl.signal, cache: "no-store" });
+      if (!res.ok) throw new Error(res.status);
+      return await res.json();
+    } finally { clearTimeout(t); }
+  }
+  const NO_SENSORS = { history: { start: new Date().toISOString(), bucket_minutes: 5, buckets: 36 }, spaces: [] };
+  async function load() {
+    if (location.protocol === "file:") return sample();   // 파일로 바로 열면 예시만
+    // 서비스에서 열었는데 응답이 없으면 예시 데이터를 실데이터처럼 보이지 않고 "응답 대기"를 그린다
+    const [spaces, sensors, health] = await Promise.allSettled([getJSON("/v1/spaces"), getJSON("/v1/sensors"), getJSON("/health")]);
+    const sens = sensors.status === "fulfilled" && sensors.value?.history ? sensors.value : NO_SENSORS;
+    if (spaces.status !== "fulfilled" || !Array.isArray(spaces.value?.spaces) || !spaces.value.spaces.length)
+      return { live: true, waiting: true, status: { status: "offline" }, sensors: sens, spaces: { spaces: [] } };
+    // /health: 200 ok, 503 stale(마지막 성공 주기가 오래됨)
+    const st = health.status === "fulfilled" && health.value?.status === "ok" && !spaces.value.stale ? "online" : "degraded";
+    return { live: true, status: { status: st }, spaces: spaces.value, sensors: sens };
+  }
+
+  // ---------- 도움 함수 ----------
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const kst = t => new Date(t).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false });
+  const kstHour = t => +new Date(t).toLocaleString("en-US", { timeZone: "Asia/Seoul", hour: "numeric", hour12: false }) % 24;
+  const fmt = (v, m) => v == null || Number.isNaN(v) ? "–" : m === "co2" ? Math.round(v).toLocaleString("ko-KR") : (+v).toFixed(1);
+  function level(c) {
+    if (c == null) return { word: "CO₂ 센서 없음", dot: "var(--muted)" };
+    if (c > 1000) return { word: "환기 필요", dot: "var(--hit)" };
+    if (c > 800) return { word: "보통", dot: "var(--warn)" };
+    return { word: "좋음", dot: "var(--ok)" };
+  }
+  // 예측이 처음 1,000 ppm 이상인 시점(분). 서비스 경보(co2_forecast.minutes)와 같은 규칙이라 문장·표·그래프·경보가 같은 값을 쓴다
+  function crossMin(c) {
+    if (!c || c.now >= 1000) return null;
+    const p = c.points.find(q => q.value >= 1000);
+    return p ? p.minutes : null;
+  }
+  const pos = v => Math.max(0, Math.min(100, (v - 400) / 1100 * 100));
+
+  function filled(arr) {
+    const out = arr.slice(); let last = null, gap = 0;
+    for (let i = 0; i < out.length; i++) {
+      if (out[i] != null) { last = out[i]; gap = 0; } else if (last != null && ++gap <= 2 && arr.slice(i + 1).some(v => v != null)) out[i] = last;
+    }
+    return out;
+  }
+  function aggregate(ss, m) {
+    const n = DATA.sensors.history.buckets;
+    const per = (ss?.sensors || []).map(d => d.history?.[m]).filter(Boolean).map(filled);
+    return Array.from({ length: n }, (_, i) => {
+      const vs = per.map(a => a[i]).filter(v => v != null);
+      return vs.length ? { avg: vs.reduce((a, b) => a + b) / vs.length, min: Math.min(...vs), max: Math.max(...vs), n: vs.length } : null;
+    });
+  }
+  const bucketTime = i => Date.parse(DATA.sensors.history.start) + (i + .5) * DATA.sensors.history.bucket_minutes * MIN;
+  function change30(agg) {
+    let last = -1; for (let i = agg.length - 1; i >= 0; i--) if (agg[i]) { last = i; break; }
+    const prev = last >= 6 ? agg[last - 6] || agg[last - 5] || agg[last - 7] : null;
+    return prev ? agg[last].avg - prev.avg : null;
+  }
+  const lastAvg = agg => { for (let i = agg.length - 1; i >= 0; i--) if (agg[i]) return agg[i].avg; return null; };
+  const sensorsOf = sp => DATA.sensors.spaces.find(s => s.slug === sp.slug);
+  // CO₂는 오르면 나쁨, 내리면 좋음. 변화가 작으면 회색
+  function chg(d, m) {
+    if (d == null) return `<span class="flat-n">–</span>`;
+    const flat = Math.abs(d) < (m === "co2" ? 10 : .2);
+    const cls = flat ? "flat-n" : m === "co2" ? (d > 0 ? "bad-n" : "good-n") : "flat-n";
+    return `<span class="${cls}">${d > 0 ? "+" : d < 0 ? "−" : "±"}${fmt(Math.abs(d), m)}</span>`;
+  }
+
+  // ---------- 그래프: 실측 평균 + 센서 범위, 예측 + 예측 범위, 주석은 그래프 위 한 줄에 ----------
+  function drawChart(box, sp, m) {
+    const W = Math.max(box.clientWidth, 260), H = box.clientHeight || 250;
+    const narrow = W < 460;
+    const agg = aggregate(sensorsOf(sp), m);
+    const past = agg.map((a, i) => a && { t: bucketTime(i), ...a }).filter(Boolean);
+    const fc = sp.forecast?.[m], slot = Date.parse(sp.slot), mae = sp.monitor?.[m]?.mae_60;
+    const half = k => mae == null ? 0 : mae * Math.sqrt(k / 60);
+    const fp = fc ? [{ t: slot, v: fc.now, k: 0, lo: fc.now, hi: fc.now }, ...fc.points.map(p => ({ t: slot + p.minutes * MIN, v: p.value, k: p.minutes, lo: p.value - half(p.minutes), hi: p.value + half(p.minutes) }))] : [];
+    const t0 = Date.parse(DATA.sensors.history.start), t1 = slot + 60 * MIN;
+
+    // 주석: 15분 사이 가장 큰 변화(평소 변화의 3배 넘을 때)와 1,000 ppm 도달 예상
+    const notes = [];
+    if (past.length > 4) {
+      const steps = past.slice(1).map((p, i) => Math.abs(p.avg - past[i].avg)).sort((a, b) => a - b);
+      const usual = steps[Math.floor(steps.length / 2)] || 1;
+      let best = null;
+      for (let i = 3; i < past.length; i++) { const d = past[i].avg - past[i - 3].avg; if (!best || Math.abs(d) > Math.abs(best.d)) best = { i, d }; }
+      if (best && Math.abs(best.d) > usual * 9) notes.push({ t: past[best.i].t, v: past[best.i].avg, text: `${best.d < 0 ? "−" : "+"}${fmt(Math.abs(best.d), m)} ${UNIT[m]} (15분, ${kst(past[best.i - 3].t)}~${kst(past[best.i].t)})`, short: `${best.d < 0 ? "−" : "+"}${fmt(Math.abs(best.d), m)}` });
+    }
+    const cm = m === "co2" ? crossMin(fc) : null;
+    const cross = cm != null ? { t: slot + cm * MIN, v: fp.find(p => p.k === cm).v } : null;
+    if (cross) notes.push({ t: cross.t, v: 1000, text: `${kst(cross.t)} 1,000 ppm 도달 예상`, short: `${kst(cross.t)} 도달`, hit: true });
+
+    const pad = { l: 44, r: narrow ? 12 : 56, t: notes.length ? 34 : 12, b: 24 };
+    const vals = [...past.flatMap(p => [p.min, p.max]), ...fp.flatMap(p => [p.lo, p.hi])];
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (m === "co2") { lo = Math.min(lo, 400); hi = Math.max(hi, 1000); }
+    const span = hi - lo;
+    const step = m === "co2" ? 200 : span > 8 ? 2 : span > 3 ? 1 : .5;
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil((hi + (m === "co2" ? 1 : step * .2)) / step) * step;
+    const x = t => pad.l + (t - t0) / (t1 - t0) * (W - pad.l - pad.r);
+    const y = v => pad.t + (1 - (v - lo) / (hi - lo)) * (H - pad.t - pad.b);
+    const X0 = pad.l, X1 = W - pad.r, Y0 = pad.t, Y1 = H - pad.b;
+    const path = (pts, k) => pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p[k]).toFixed(1)}`).join("");
+    const band = (pts, a, b) => path(pts, a) + pts.slice().reverse().map(p => `L${x(p.t).toFixed(1)},${y(p[b]).toFixed(1)}`).join("") + "Z";
+    let g = "";
+    for (let v = lo; v <= hi + 1e-9; v += step) {
+      if (v > lo) g += `<line x1="${X0}" x2="${X1}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`;
+      g += `<text x="${X0 - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${m === "co2" ? v.toLocaleString("ko-KR") : v.toFixed(step < 1 ? 1 : 0)}</text>`;
+    }
+    g += `<line x1="${X0}" x2="${X1}" y1="${Y1}" y2="${Y1}" stroke="var(--muted)" stroke-width="1"/>`;
+    for (let t = Math.ceil(t0 / (60 * MIN)) * 60 * MIN; t <= t1; t += 60 * MIN)
+      if (Math.abs(x(t) - x(slot)) > 30) g += `<text x="${x(t)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--muted)">${String(kstHour(t)).padStart(2, "0")}:00</text>`;
+    g += `<line x1="${x(slot)}" x2="${x(slot)}" y1="${Y0}" y2="${Y1}" stroke="var(--muted)" stroke-dasharray="2 3"/>`;
+    g += `<text x="${x(slot)}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)">지금</text>`;
+    if (m === "co2") {
+      g += `<line x1="${X0}" x2="${X1}" y1="${y(1000)}" y2="${y(1000)}" stroke="var(--hit)" stroke-dasharray="4 3"/>`;
+      g += `<text x="${X0 + 6}" y="${y(1000) - 5}" font-size="11" fill="var(--hit)">1,000 ppm</text>`;
+    }
+    const runs = []; let run = [];
+    past.forEach((p, i) => { if (i && p.t - past[i - 1].t > 15 * MIN) { runs.push(run); run = []; } run.push(p); });
+    if (run.length) runs.push(run);
+    for (const r of runs) {
+      if (r.some(p => p.n > 1)) g += `<path d="${band(r, "max", "min")}" fill="var(--band)"/>`;
+      g += `<path d="${path(r, "avg")}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>`;
+    }
+    if (fp.length) {
+      if (mae != null) g += `<path d="${band(fp, "hi", "lo")}" fill="var(--accent-soft)"/>`;
+      g += `<path d="${path(fp, "v")}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-dasharray="6 4"/>`;
+      const e = fp.at(-1);
+      if (!narrow) g += `<text x="${x(e.t) + 6}" y="${y(e.v) + 4}" font-size="12" font-weight="600" fill="var(--accent-text)">${fmt(e.v, m)}</text>`;
+    }
+    // 주석 줄: 그래프 위에 라벨, 점까지 지시선. 겹치면 짧은 글로
+    let right = -Infinity;
+    notes.sort((a, b) => a.t - b.t).forEach(n => {
+      const nx = x(n.t), label = narrow ? n.short : n.text, w = label.length * 6.4;
+      let lx = Math.max(X0, Math.min(X1 - w, nx - w / 2));
+      const txt = lx < right + 8 ? n.short : label;
+      if (lx < right + 8) lx = Math.max(right + 8, nx - txt.length * 3.2);
+      right = lx + txt.length * 6.4;
+      g += `<line x1="${nx}" x2="${nx}" y1="${14}" y2="${y(n.v) - 4}" stroke="${n.hit ? "var(--hit)" : "var(--muted)"}" stroke-width="1"/>`;
+      g += `<circle cx="${nx}" cy="${y(n.v)}" r="3.5" fill="var(--panel)" stroke="${n.hit ? "var(--hit)" : "var(--ink)"}" stroke-width="1.5"/>`;
+      g += `<text x="${lx}" y="10" font-size="11.5" font-weight="${n.hit ? 600 : 400}" fill="${n.hit ? "var(--hit)" : "var(--text)"}">${txt}</text>`;
+    });
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(sp.space)} ${LABEL[m]} 최근 3시간 실측과 60분 예측">${g}<g class="hv" opacity="0"><line class="vl" y1="${Y0}" y2="${Y1}" stroke="var(--ink)" opacity=".3"/><circle class="dt" r="4"/></g></svg><div class="tip" hidden></div>`;
+    const pts = [...past.map(p => ({ ...p, v: p.avg })), ...fp.slice(1).map(p => ({ ...p, f: true }))];
+    const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), hv = svg.querySelector(".hv");
+    const hide = () => { tip.hidden = true; hv.setAttribute("opacity", 0); };
+    const move = ev => {
+      const rc = svg.getBoundingClientRect(), px = (ev.clientX - rc.left) * W / rc.width;
+      if (px < X0 - 10 || px > X1 + 10) return hide();
+      let b = null, bd = Infinity; for (const p of pts) { const d = Math.abs(x(p.t) - px); if (d < bd) { bd = d; b = p; } }
+      if (!b) return hide();
+      hv.setAttribute("opacity", 1);
+      hv.querySelector(".vl").setAttribute("x1", x(b.t)); hv.querySelector(".vl").setAttribute("x2", x(b.t));
+      const dt = hv.querySelector(".dt"); dt.setAttribute("cx", x(b.t)); dt.setAttribute("cy", y(b.v)); dt.setAttribute("fill", b.f ? "var(--accent)" : "var(--ink)");
+      tip.innerHTML = b.f ? `<span class="t">${kst(b.t)} · ${b.k}분 뒤 예측</span><span>${fmt(b.v, m)} ${UNIT[m]}${mae != null ? ` (${fmt(b.lo, m)}~${fmt(b.hi, m)})` : ""}</span>`
+        : `<span class="t">${kst(b.t - 2.5 * MIN)}~${kst(b.t + 2.5 * MIN)} 실측</span><span>평균 ${fmt(b.avg, m)} ${UNIT[m]}</span>${b.n > 1 ? `<span>센서 ${b.n}대 ${fmt(b.min, m)}~${fmt(b.max, m)}</span>` : ""}`;
+      tip.hidden = false;
+      const tw = tip.offsetWidth, bx = x(b.t) / W * rc.width;
+      tip.style.left = `${Math.max(0, Math.min(rc.width - tw, bx < rc.width / 2 ? bx + 12 : bx - tw - 12))}px`;
+    };
+    svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", hide);
+    return { legend: `<span><i class="ln"></i>실측 평균</span>${past.some(p => p.n > 1) ? `<span><i class="rg"></i>센서 범위</span>` : ""}${fc ? `<span><i class="fc"></i>예측</span>${mae != null ? `<span><i class="fr"></i>예측 범위</span>` : ""}` : ""}` };
+  }
+
+  // 센서 표의 3시간 미니 그래프 (표 안에서만 쓴다)
+  function spark(values, limit, stale) {
+    const W = 120, H = 26, p = 3, vs = values.filter(v => v != null);
+    if (vs.length < 2) return `<svg class="spark" viewBox="0 0 ${W} ${H}"></svg>`;
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    if (limit != null) { lo = Math.min(lo, 400); hi = Math.max(hi, limit); }
+    if (hi - lo < (limit != null ? 80 : 1)) { const c = (hi + lo) / 2, s = limit != null ? 40 : .5; lo = c - s; hi = c + s; }
+    const x = i => p + i / (values.length - 1) * (W - 2 * p), y = v => p + (1 - (v - lo) / (hi - lo)) * (H - 2 * p);
+    let d = "", on = false;
+    values.forEach((v, i) => { if (v == null) { on = false; return; } d += `${on ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`; on = true; });
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${limit != null && limit <= hi ? `<line x1="${p}" x2="${W - p}" y1="${y(limit)}" y2="${y(limit)}" stroke="var(--hit)" stroke-dasharray="2 3"/>` : ""}<path d="${d}" fill="none" stroke="${stale ? "var(--muted-soft)" : "var(--ink)"}" stroke-width="1.5"/></svg>`;
+  }
+
+  // ---------- 화면 그리기 ----------
+  let DATA, loadedAt = Date.now();
+  const metricOf = {};
+  try { Object.assign(metricOf, JSON.parse(localStorage.getItem("air-metric") || "{}")); } catch (e) { /* 저장소 없음 */ }
+
+  function render() {
+    const root = $("draft");
+    if (DATA.waiting) {
+      root.innerHTML = `<div class="in">
+        <div class="title" id="top"><h1>교육장 공기 상태</h1><p>추론 서비스가 아직 결과를 내지 않았습니다(첫 계산 전이거나 멈춤). 30초마다 다시 읽습니다.</p></div>
+        <section class="panel" style="flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px"><div class="note">확인: <a style="color:inherit" href="/health">/health</a> · <a style="color:inherit" href="/v1/spaces">/v1/spaces</a> · <a style="color:inherit" href="/v1/sensors">/v1/sensors</a></div>
+        <button type="button" class="btn" id="reload" style="width:auto">다시 읽기</button></section></div>`;
+      return;
+    }
+    const all = DATA.spaces.spaces;
+    const spaces = ORDER.map(s => all.find(x => x.slug === s)).filter(Boolean).concat(all.filter(x => !ORDER.includes(x.slug)));
+    const slot = Date.parse(DATA.spaces.slot || spaces[0].slot);
+    const rank = spaces.map(sp => {
+      const c = sp.forecast?.co2, cm = crossMin(c);
+      return { sp, c, at: cm, over: !!(c && c.now > 1000) };
+    }).sort((a, b) => (b.over - a.over) || ((a.at ?? 999) - (b.at ?? 999)) || ((b.c?.now ?? -1) - (a.c?.now ?? -1)));
+    const top = rank[0];
+    const finding = top.over ? `<b>${esc(top.sp.space)}</b> CO₂가 이미 1,000 ppm을 넘었습니다. 지금 환기하세요.`
+      : top.at != null ? `<b>${esc(top.sp.space)}</b> CO₂가 약 ${top.at}분 뒤(${kst(slot + top.at * MIN)}) 1,000 ppm을 넘을 것으로 보입니다. 다음 쉬는 시간에 환기하세요.`
+      : `1시간 안에 1,000 ppm을 넘을 공간이 없습니다.`;
+    const alerts = spaces.flatMap(sp => (sp.alerts || []).map(a => ({ ...a, sp }))).sort((a, b) => (a.level === "warning" ? 0 : 1) - (b.level === "warning" ? 0 : 1));
+    const st = DATA.status.status;
+    const svc = { online: "서비스 정상", degraded: "계산 실패 중", offline: "서비스 꺼짐" }[st] || st;
+    const okColor = st === "online" ? "var(--ok)" : st === "degraded" ? "var(--warn)" : "var(--hit)";
+    let total = 0, stale = 0;
+    for (const g of DATA.sensors.spaces || []) for (const d of g.sensors || []) { total++; if (d.stale) stale++; }
+
+    root.innerHTML = `<div class="in">
+      <div class="shell">
+        <a class="brand" href="#top" aria-label="팀5 공기 서비스">
+          <svg viewBox="0 0 30 18" aria-hidden="true"><circle cx="5" cy="9" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="9" r="4.5" fill="currentColor"/><circle cx="25" cy="9" r="4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="9" x2="10.5" y1="7.5" y2="7.5" stroke="currentColor" stroke-width="1.5"/><line x1="9" x2="10.5" y1="10.5" y2="10.5" stroke="currentColor" stroke-width="1.5"/><line x1="19.5" x2="21" y1="7.5" y2="7.5" stroke="currentColor" stroke-width="1.5"/><line x1="19.5" x2="21" y1="10.5" y2="10.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          <b>팀5 공기 서비스</b><span>보드 A · 교육장 4곳</span></a>
+        <div class="stamp"><span class="dot" style="--ok:${okColor}">${esc(svc)}</span><span>${kst(slot)} 기준 · ${DATA.live ? "실시간" : "예시 데이터"} · <span id="ago">방금</span> 읽음</span><button type="button" class="btn" id="reload">다시 읽기</button></div>
+      </div>
+      <div class="title" id="top"><h1>교육장 공기 상태</h1><p>${finding}</p></div>
+      <div class="main">
+        <section class="panel" aria-labelledby="t-rank">
+          <div class="ph"><h2 id="t-rank">환기 순서</h2><span>1,000 ppm에 먼저 닿는 공간부터 · 누르면 상세로</span></div>
+          <div class="rows">
+            <div class="row head"><span>공간</span><span class="r">CO₂ 지금</span><span class="r">30분 변화</span><span>400~1,500 ppm · 막대 끝 지금, 색 눈금 60분 뒤, 세로선 1,000</span><span class="r">1,000 ppm</span></div>
+            ${rank.map(({ sp, c, at, over }) => {
+              const lv = level(c?.now ?? null), c60 = c?.points.at(-1)?.value;
+              return `<div class="row" data-go="${esc(sp.slug)}" role="link" tabindex="0" style="--lv:${lv.dot}">
+                <span class="nm">${esc(sp.space)}<small>${lv.word}${sp.state ? (sp.state.occupied ? " · 사용 중" : " · 비어 있음") : ""}</small></span>
+                <span class="co2 r num">${c ? `${fmt(c.now, "co2")}<small>ppm</small>` : "–"}</span>
+                <span class="chg r num">${c ? chg(change30(aggregate(sensorsOf(sp), "co2")), "co2") : `<span class="flat-n">–</span>`}</span>
+                ${c ? `<span class="track" title="지금 ${fmt(c.now, "co2")} · 60분 뒤 ${fmt(c60, "co2")} ppm"><i class="base"></i><i class="fill" style="width:${pos(c.now)}%"></i>
+                  <i class="fc" style="left:${Math.min(pos(c.now), pos(c60))}%;width:${Math.abs(pos(c60) - pos(c.now))}%"></i><i class="fcm" style="left:calc(${pos(c60)}% - 1px)"></i><i class="lim" style="left:${pos(1000)}%"></i></span>`
+                  : `<span class="note">온도 ${fmt(sp.forecast?.temperature?.now, "temperature")} ℃ · ${esc(sp.forecast_unavailable || "CO₂ 값 없음")}</span>`}
+                <span class="when num">${over ? `<b>이미 넘음</b>` : at != null ? `<b>${at}분 뒤 · ${kst(slot + at * MIN)}</b>` : c ? `<span>1시간 안 없음</span>` : `<span>–</span>`}</span>
+              </div>`;
+            }).join("")}
+          </div>
+        </section>
+        <section class="panel dark" aria-labelledby="t-alerts">
+          <div class="ph"><h2 id="t-alerts">켜진 경보</h2><span>경고 ${alerts.filter(a => a.level === "warning").length}건 · 끊긴 센서 ${stale}대</span></div>
+          <ul class="alerts">${alerts.map(a => `<li><span class="lv ${a.level === "warning" ? "w" : "i"}">${a.level === "warning" ? "경고" : "알림"}</span><span>${esc(a.message)}<span class="sp">${esc(a.sp.space)}</span></span></li>`).join("") || `<li><span></span><span>켜진 경보가 없습니다.</span></li>`}</ul>
+        </section>
+      </div>
+
+      <div class="spaces">
+        <h2>공간별 3시간 실측과 60분 예측</h2>
+        ${spaces.map(sp => {
+          const c = sp.forecast?.co2, tmp = sp.forecast?.temperature, ss = sensorsOf(sp);
+          const hum = lastAvg(aggregate(ss, "humidity"));
+          const lv = level(c?.now ?? null);
+          const tabs = (c ? ["co2"] : []).concat(["temperature", "humidity"]);
+          const m = tabs.includes(metricOf[sp.slug]) ? metricOf[sp.slug] : tabs[0];
+          const mon = sp.monitor?.[m];
+          const st2 = sp.state?.ventilation_probability != null ? sp.state : null, an = sp.anomaly?.score != null && sp.anomaly?.threshold != null ? sp.anomaly : null, anMax = an ? Math.max(an.threshold * 1.6, an.score * 1.1) : 1;
+          const warn = (sp.alerts || []).some(a => a.level === "warning");
+          const mainMon = [sp.monitor?.co2, sp.monitor?.temperature].find(x => x?.mae_60 != null);
+          return `<section class="panel space ${c && c.now > 1000 ? "critical" : warn ? "alerting" : ""}" id="${esc(sp.slug)}" aria-labelledby="h-${esc(sp.slug)}" style="--lv:${lv.dot}">
+            <div class="ph"><h2 id="h-${esc(sp.slug)}">${esc(sp.space)}<span class="lvl">${lv.word}</span></h2>
+              <div class="seg" role="group" aria-label="${esc(sp.space)} 그래프 항목">${tabs.map(k => `<button type="button" id="m-${esc(sp.slug)}-${k}" data-slug="${esc(sp.slug)}" data-m="${k}" aria-pressed="${m === k}">${LABEL[k]}</button>`).join("")}</div></div>
+            <div class="detail">
+              <div><div class="legend" data-legend></div><div class="chart" data-slug="${esc(sp.slug)}" data-m="${m}"></div>
+                <div class="note">${m === "humidity" ? "습도는 모델이 예측하지 않아 실측만 그립니다." : mon?.mae_60 != null ? `예측 범위: 지난 24시간 60분 예측 오차(${mon.mae_60.toFixed(m === "co2" ? 0 : 2)} ${UNIT[m]})로, 가까운 시점일수록 좁게.` : ""}</div></div>
+              <div class="side">
+                <div class="kv">
+                  <div><span class="k">온도</span><span class="v num">${fmt(tmp?.now, "temperature")}<small>℃</small></span><span class="s">60분 뒤 ${fmt(tmp?.points.at(-1)?.value, "temperature")}</span></div>
+                  <div><span class="k">습도</span><span class="v num">${fmt(hum, "humidity")}<small>%RH</small></span><span class="s">센서 평균</span></div>
+                </div>
+                ${st2 ? `<div class="meter"><span class="k"><span>30분 안 환기 필요</span><b class="num">${Math.round(st2.ventilation_probability * 100)}%</b></span><span class="t"><i class="${st2.ventilation_probability >= .5 ? "w" : ""}" style="width:${st2.ventilation_probability * 100}%"></i></span></div>
+                <div class="meter"><span class="k"><span>사용 중</span><b class="num">${Math.round(st2.occupied_probability * 100)}%</b></span><span class="t"><i style="width:${st2.occupied_probability * 100}%"></i></span></div>` : `<div class="note">CO₂ 센서가 없어 사용 여부와 환기 판단을 하지 않습니다.</div>`}
+                ${an ? `<div class="meter"><span class="k"><span>이상 점수 (기준 ${an.threshold.toFixed(2)})</span><b class="num">${an.score.toFixed(2)}</b></span><span class="t"><i class="${an.is_anomaly ? "w" : ""}" style="width:${an.score / anMax * 100}%"></i><s style="left:${an.threshold / anMax * 100}%"></s></span></div>` : ""}
+                <div class="note">${sp.sensors ? `센서 ${sp.sensors.total - (sp.sensors.stale || []).length}/${sp.sensors.total}대 수신${sp.sensors.last_seen ? ` · 마지막 ${kst(sp.sensors.last_seen)}` : ""}` : ""}${mainMon ? ` · 60분 예측 오차 ${mainMon === sp.monitor?.co2 ? Math.round(mainMon.mae_60) + " ppm" : mainMon.mae_60.toFixed(2) + " ℃"} (최근 ${mainMon.n}건)` : ""}</div>
+              </div>
+            </div>
+          </section>`;
+        }).join("")}
+      </div>
+
+      <section class="sensors" id="sensors" aria-labelledby="t-sensors">
+        <div class="ph"><h2 id="t-sensors">센서별 실측값</h2><span>센서 ${total}대 중 ${total - stale}대 정상${stale ? `, ${stale}대 끊김` : ""}</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>위치</th><th>기종</th><th class="r">CO₂ ppm</th><th class="r">온도 ℃</th><th class="r">습도 %RH</th><th>최근 3시간</th><th>배터리</th><th class="r">마지막 수신</th><th>상태</th></tr></thead>
+          <tbody>${(DATA.sensors.spaces || []).map(g => `<tr class="group"><td colspan="9">${esc(g.space)} <span>${g.total}대${g.stale ? `, 끊김 ${g.stale}` : ""}</span></td></tr>` + (g.sensors || []).map(d => {
+            const mm = d.metrics || {}, bat = mm.battery?.value, sm = d.history?.co2 ? "co2" : "temperature";
+            const age = d.age_minutes == null ? "–" : d.age_minutes < 1 ? "1분 안" : `${Math.round(d.age_minutes)}분 전`;
+            const extras = Object.entries(mm).filter(([k]) => !["co2", "temperature", "humidity", "battery"].includes(k)).map(([k, v]) => `${k} ${v.value}${v.unit ? " " + v.unit : ""}`).join(" · ");
+            return `<tr class="${d.stale ? "stale" : ""}">
+              <td class="c-name">${d.spot ? esc(d.spot) : `<span style="color:var(--muted)">위치 표시 없음</span>`}<span class="id">${esc(d.profile)} · ${esc(d.device_id)}</span></td>
+              <td class="c-hide"><span title="${esc(extras)}">${esc(d.profile)}</span></td>
+              <td class="r c-hide">${fmt(mm.co2?.value, "co2")}</td>
+              <td class="r c-hide">${fmt(mm.temperature?.value, "temperature")}</td>
+              <td class="r c-hide">${fmt(mm.humidity?.value, "humidity")}</td>
+              <td class="c-hide" title="${LABEL[sm]} 최근 3시간">${spark(filled(d.history?.[sm] || []), sm === "co2" ? 1000 : null, d.stale)}</td>
+              <td class="c-hide">${bat == null ? "–" : `<span class="bat ${bat < 15 ? "low" : ""}"><span class="cell"><i style="width:${Math.max(2, bat * .22)}px"></i></span>${Math.round(bat)}%</span>`}</td>
+              <td class="r c-hide">${d.last_seen ? kst(d.last_seen) : "–"} <span style="color:var(--muted)">(${age})</span></td>
+              <td class="state c-state">${d.kind === "event" ? "사건 센서" : d.stale ? "끊김" : "정상"}</td>
+              <td class="c-vals">${[mm.co2 && `CO₂ ${fmt(mm.co2.value, "co2")}`, mm.temperature && `${fmt(mm.temperature.value, "temperature")} ℃`, mm.humidity && `${fmt(mm.humidity.value, "humidity")} %RH`, bat != null && `배터리 ${Math.round(bat)}%`, age].filter(Boolean).join(" · ")}</td></tr>`;
+          }).join("")).join("")}</tbody></table></div>
+      </section>
+
+      <footer>
+        <span>${DATA.live ? "출처: 보드 A 추론 서비스 (/v1/spaces, /v1/sensors). 30초마다 다시 읽습니다." : "출처: 예시 데이터 (docs/interface.md 형식). 보드 A 서비스 주소에서 이 파일을 열면 실데이터로 바뀝니다."}</span>
+        <span>CO₂ 상태: 800 ppm 이하 좋음, 800~1,000 보통, 1,000 초과 환기 필요. 그래프의 회색 띠는 같은 공간 센서들의 최저~최고값, 코랄 점선과 띠는 60분 예측과 예측 범위입니다. 시각은 한국 시각(KST).</span>
+      </footer>
+    </div>`;
+    drawCharts();
+  }
+
+  function drawCharts() {
+    for (const box of document.querySelectorAll(".chart")) {
+      const sp = DATA.spaces.spaces.find(s => s.slug === box.dataset.slug);
+      if (!sp) continue;
+      const r = drawChart(box, sp, box.dataset.m);
+      box.parentElement.querySelector("[data-legend]").innerHTML = r.legend;
+    }
+  }
+
+  document.addEventListener("click", ev => {
+    const s = ev.target.closest(".seg button");
+    if (s) {
+      metricOf[s.dataset.slug] = s.dataset.m;
+      try { localStorage.setItem("air-metric", JSON.stringify(metricOf)); } catch (e) { /* 저장 못 해도 동작 */ }
+      const y = scrollY; render(); scrollTo(0, y); return;
+    }
+    const row = ev.target.closest(".row[data-go]");
+    if (row) { document.getElementById(row.dataset.go)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); return; }
+    if (ev.target.id === "reload") refresh();
   });
-}
-document.getElementById("sensors").addEventListener("click", e => {
-  const b = e.target.closest("button[data-metric]");
-  if (b && sensorData) { spaceMetric[b.dataset.space] = b.dataset.metric; renderSensors(); }
-});
+  document.addEventListener("keydown", ev => {
+    const row = ev.target.closest?.(".row[data-go]");
+    if (row && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); document.getElementById(row.dataset.go)?.scrollIntoView(); }
+  });
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => DATA && drawCharts(), 150); });
+  setInterval(() => { const el = $("ago"); if (!el) return; const s = Math.round((Date.now() - loadedAt) / 1000); el.textContent = s < 10 ? "방금" : s < 60 ? `${s}초 전` : `${Math.floor(s / 60)}분 전`; }, 1000);
 
-// ---------- 탭 ----------
-function show(view) {
-  for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-selected", String(b.dataset.view === view));
-  document.getElementById("view-model").hidden = view !== "model";
-  document.getElementById("view-model").style.display = view === "model" ? "contents" : "none";
-  document.getElementById("view-sensors").hidden = view !== "sensors";
-  if (location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
-  if (view === "sensors") refreshSensors();
-}
-for (const b of document.querySelectorAll(".tab")) b.addEventListener("click", () => show(b.dataset.view));
-show(location.hash === "#sensors" ? "sensors" : "model");
-
-// 새로고침 간격 (고른 값은 이 브라우저에 기억). 1초를 골라도 서버는 DB를 5초에 한 번만 읽는다(cache_seconds)
-const picker = document.getElementById("interval");
-let timer = null;
-function store(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* 저장 못 해도 동작 */ } }
-function saved() { try { return localStorage.getItem("refresh-seconds"); } catch (e) { return null; } }
-function schedule() {
-  clearInterval(timer);
-  const seconds = Number(picker.value) || 10;
-  timer = setInterval(() => (location.hash === "#sensors" ? refreshSensors() : refresh()), seconds * 1000);
-}
-picker.value = [...picker.options].some(o => o.value === saved()) ? saved() : "10";
-picker.addEventListener("change", () => { store("refresh-seconds", picker.value); schedule(); });
-refresh();
-schedule();
-setInterval(tick, 1000);
+  let timer;
+  async function refresh() {
+    clearTimeout(timer);
+    DATA = await load(); loadedAt = Date.now();
+    const y = scrollY; render(); scrollTo(0, y);
+    if (DATA.live) timer = setTimeout(refresh, 30000);   // 응답 대기 화면도 30초마다 다시 시도
+  }
+  refresh();
+})();
 </script>
 </body>
 </html>

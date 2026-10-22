@@ -352,6 +352,51 @@ def summarize_cycles(frame, period_seconds):
     }
 
 
+SCORED = {"ventilation": 30, "co2_forecast": 60}     # 경보 종류 → 실제 1,000 ppm 도달을 확인할 시간(분)
+
+
+def score_alerts(root, cfg, frame, merge_minutes=30):
+    """운영 중 낸 CO₂ 경보가 실제로 맞았는지: 경보 이벤트마다 그 뒤 창 안에 공간 CO₂(5분 중앙값)가 1,000 ppm에 닿았나."""
+    from anomaly.data import METRICS, space_frames
+    from pipeline.loader import from_collector_db
+    from pipeline.preprocess import preprocess
+    from pipeline.settings import load_settings
+
+    settings = load_settings(root / "config" / "preprocess.toml", root=root)
+    slug_to_space = {spec.slug: spec.space for spec in settings.spaces}
+    events = []
+    rows = frame[frame["ok"] == 1].sort_values("time")
+    for kind in SCORED:
+        last = {}
+        for t, alerts in zip(rows["time"], rows["alerts"].fillna("")):
+            for item in alerts.split(";"):
+                if ":" not in item:
+                    continue
+                slug, typ = item.split(":", 1)
+                if typ != kind:
+                    continue
+                if slug not in last or (t - last[slug]).total_seconds() > merge_minutes * 60:
+                    events.append({"slug": slug, "type": kind, "time": t})
+                last[slug] = t
+    if not events:
+        return []
+    start = min(e["time"] for e in events) - pd.Timedelta(hours=2)
+    end = max(e["time"] for e in events) + pd.Timedelta(minutes=max(SCORED.values()) + 5)
+    raw = from_collector_db(root / cfg["data"]["collector_db"], start, end, list(METRICS))
+    clean, _, _ = preprocess({m: raw[raw["metric"].astype(str) == m] for m in METRICS}, settings)
+    frames = space_frames(clean, settings)
+    out = []
+    for e in events:
+        co2 = frames.get(slug_to_space.get(e["slug"], e["slug"]), pd.DataFrame()).get("co2")
+        if co2 is None:
+            continue
+        window = co2[(co2.index > e["time"] - pd.Timedelta(minutes=5)) & (co2.index <= e["time"] + pd.Timedelta(minutes=SCORED[e["type"]]))]
+        if window.dropna().empty or co2.index.max() < e["time"] + pd.Timedelta(minutes=SCORED[e["type"]]):
+            continue                                       # 아직 창이 다 지나지 않음
+        out.append({**e, "max_co2": float(window.max()), "hit": bool(window.max() >= 1000)})
+    return out
+
+
 def cmd_summary(root, cfg, args):
     path = root / "data" / "service" / "cycles.csv"
     frame = pd.read_csv(path)
@@ -382,6 +427,16 @@ def cmd_summary(root, cfg, args):
         lines += [f"| {kst(a)} | {kst(b)} | {g / 60:.1f}분 |" for a, b, g in s["downtimes"]] + [""]
     lines += ["## 경보 (주기 × 공간 기준 횟수)", "", "| 공간:종류 | 주기 수 |", "| --- | --- |"]
     lines += [f"| {k} | {v} |" for k, v in sorted(s["alert_counts"].items())] or ["| (없음) | 0 |"]
+    if args.score:
+        scored = score_alerts(root, cfg, frame)
+        lines += ["", "## 경보 채점 (실제 CO₂로 확인)", "",
+                  "같은 공간·종류의 경보는 30분 안이면 한 이벤트. 환기 경보는 30분, CO₂ 초과 예측은 60분 안에 공간 CO₂(5분 중앙값)가 1,000 ppm에 닿으면 맞음.", "",
+                  "| 공간 | 종류 | 경보 시각 (KST) | 창 안 최대 CO₂ | 맞음 |", "| --- | --- | --- | ---: | --- |"]
+        lines += [f"| {e['slug']} | {e['type']} | {kst(e['time'])} | {e['max_co2']:.0f} | {'O' if e['hit'] else 'X'} |" for e in scored] or ["| (채점할 경보 없음) | | | | |"]
+        for kind in SCORED:
+            k = [e for e in scored if e["type"] == kind]
+            if k:
+                lines.append(f"\n- `{kind}`: {sum(e['hit'] for e in k)}/{len(k)} 맞음 ({sum(e['hit'] for e in k) / len(k):.0%})")
     if s["errors"]:
         lines += ["", "## 실패 원인", "", "| 오류 | 횟수 |", "| --- | --- |"]
         lines += [f"| `{k}` | {v} |" for k, v in s["errors"].items()]
@@ -405,6 +460,7 @@ def main(argv=None):
     p_sum = sub.add_parser("summary")
     p_sum.add_argument("--hours", type=float)
     p_sum.add_argument("--since", help="KST 시작 시각 (예: 2026-10-22T15:00)")
+    p_sum.add_argument("--score", action="store_true", help="CO₂ 경보를 수집기 DB의 실제 값으로 채점")
     args = parser.parse_args(argv)
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(message)s")
     config_path = Path(args.config)

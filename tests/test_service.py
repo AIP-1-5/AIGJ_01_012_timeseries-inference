@@ -221,7 +221,7 @@ def test_summary_counts_downtime(tmp_path):
     frame.loc[5, "alerts"] = "lab:data_gap;meeting:data_gap"
     frame.to_csv(root / "data" / "service" / "cycles.csv", index=False)
     cfg = {"cycle": {"seconds": 60}}
-    args = type("A", (), {"hours": None, "since": None})()
+    args = type("A", (), {"hours": None, "since": None, "score": False})()
     assert cmd_summary(root, cfg, args) == 0
     text = (root / "docs" / "reports" / "008-service-log.md").read_text(encoding="utf-8")
     assert "| 멈춘 구간 (간격 > 180초) | 1회 |" in text and "| lab:data_gap | 1 |" in text
@@ -329,3 +329,18 @@ def test_ten_minute_collector_stop_raises_alert(root, engine):
     assert len(gaps) == len(stopped["spaces"]) and all(a["scope"] == "collector" for a in gaps)
     running = engine.run_cycle(last + pd.Timedelta(minutes=1))
     assert running["collector"]["silent"] is False
+
+
+def test_score_alerts_against_actual_co2(root):
+    """운영 경보 채점: 실습실 수업 중(CO₂ 850 유지)에 낸 환기 경보는 1,000에 닿지 않았으니 '틀림'."""
+    from service.__main__ import score_alerts
+
+    t = NOW - pd.Timedelta(hours=2)
+    frame = pd.DataFrame({"time": [t, t + pd.Timedelta(minutes=1), t + pd.Timedelta(minutes=50)], "ok": 1,
+                          "alerts": ["lab:ventilation", "lab:ventilation;office:co2_forecast", "lab:ventilation"]})
+    cfg = load_service_config(root / "config" / "service.toml")
+    scored = score_alerts(root, cfg, frame)
+    lab = [e for e in scored if e["slug"] == "lab"]
+    assert len(lab) == 2                                   # 1분 차이는 한 이벤트, 50분 뒤는 새 이벤트
+    assert all(not e["hit"] and e["max_co2"] < 1000 for e in lab)
+    assert [e["type"] for e in scored if e["slug"] == "office"] == ["co2_forecast"]

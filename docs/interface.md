@@ -56,7 +56,7 @@ $ curl -s 'http://100.113.228.46:8080/v1/spaces/meeting/forecast?minutes=30'
 | --- | --- | --- |
 | `space`, `slug` | 문자열 | 공간 이름(한글), 영문 slug |
 | `slot` | 시각 | 결과 기준 5분 칸의 끝 시각. `[slot−5분, slot)` 측정값까지 반영 |
-| `sensors.total` / `.stale` / `.last_seen` | 개수 / 센서 ID 목록 / 시각 | 최근 26시간 안에 CO₂·온도·습도를 보고한 센서 수(문 열림 센서 등은 제외), 끊긴 센서(기대 간격 × 3, 최소 15분 넘게 없음), 마지막 수신 |
+| `sensors.total` / `.stale` / `.last_seen` | 개수 / 센서 ID 목록 / 시각 | 최근 26시간 안에 CO₂·온도·습도를 보고한 센서 수(문 열림 센서 등은 제외), 끊긴 센서(기대 간격 × 3, 최소 5분 넘게 없음: 1분 센서 5분, 10분 센서 30분), 마지막 수신 |
 | `forecast.co2`, `forecast.temperature` | 객체 또는 없음 | `now`(지금 값), `as_of`, `points[{minutes, value}]` 5~60분 12개. 과거 2시간 중 75% 미만만 값이 있거나 최근 값이 15분 넘게 끊기면 빠진다 |
 | `forecast_unavailable` | 문자열 | 예측을 못 낸 이유 (예: `최근 값이 끊김`) |
 | `anomaly.score` / `.threshold` / `.is_anomaly` | 실수 / 실수 / 참·거짓 | 오토인코더 재구성 오차(최근 15분, 정규화 단위). `score > threshold`이면 이상 |
@@ -86,7 +86,7 @@ $ curl -s 'http://100.113.228.46:8080/v1/spaces/meeting/forecast?minutes=30'
 
 | `type` | `level` | 조건 | 추가 필드 |
 | --- | --- | --- | --- |
-| `data_gap` | warning | 이 공간의 센서가 모두 끊김(또는 하나도 없음). 예측·이상·상태는 마지막 값으로 지어내지 않고 비운다 | |
+| `data_gap` | warning | `scope: "collector"`: 모든 센서가 5분 넘게 조용함(수집기·브로커·네트워크 끊김). `scope: "space"`: 이 공간의 센서만 모두 끊김. 오래된 값으로 예측을 지어내지 않는다(최근 값이 15분 넘으면 예측을 비움) | `scope` |
 | `sensor_gap` | info | 일부 센서만 끊김. 나머지 센서로 계산은 계속한다 | |
 | `co2_forecast` | warning | 지금 1,000 ppm 미만인데 60분 예측 안에 1,000 이상인 시점이 있음 | `minutes` (처음 넘는 시점) |
 | `ventilation` | warning | `state.ventilation_alert`가 참 | |

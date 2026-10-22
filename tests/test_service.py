@@ -316,3 +316,16 @@ def test_event_sensor_is_not_a_gap(root, engine):
     office = engine.run_cycle(NOW)["spaces"]["office"]
     assert office["sensors"]["total"] == 1 and office["sensors"]["stale"] == []
     assert not [a for a in office["alerts"] if a["type"] in ("sensor_gap", "data_gap")]
+
+
+def test_ten_minute_collector_stop_raises_alert(root, engine):
+    """과제 8 확인 기준: 수집기를 10분 멈추면 '데이터 끊김' 경보 (5분 안)."""
+    last = pd.read_sql_query("SELECT MAX(measured_at) AS t FROM measurements WHERE metric = 'co2'",
+                             sqlite3.connect(root / "data" / "collector.db"))["t"].iloc[0]
+    last = pd.Timestamp(last)                                        # 앞 시험들이 넣은 마지막 수신 시각
+    stopped = engine.run_cycle(last + pd.Timedelta(minutes=7))       # 7분째 조용 (10분 정지 중)
+    assert stopped["collector"]["silent"] is True
+    gaps = [a for e in stopped["spaces"].values() for a in e["alerts"] if a["type"] == "data_gap"]
+    assert len(gaps) == len(stopped["spaces"]) and all(a["scope"] == "collector" for a in gaps)
+    running = engine.run_cycle(last + pd.Timedelta(minutes=1))
+    assert running["collector"]["silent"] is False

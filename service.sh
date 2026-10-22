@@ -8,4 +8,5 @@ if [[ -f .env ]]; then
     source .env
     set +a
 fi
+mkdir -p data/service
 exec .venv/bin/python -m service "$@"

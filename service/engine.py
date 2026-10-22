@@ -91,7 +91,7 @@ class Engine:
                                 f"WHERE measured_at >= ? AND metric IN ({','.join('?' * len(METRICS))}) GROUP BY device_id",
                                 (since, *METRICS)).fetchall()
         factor = float(self.cfg["data"].get("stale_factor", 3))
-        floor_min = float(self.cfg["data"].get("stale_min_minutes", 15))
+        floor_min = float(self.cfg["data"].get("stale_min_minutes", 5))
         out = []
         for device, profile, space, last in rows:
             expected = self.collector_cfg.intervals.minutes_for(device, profile)
@@ -127,7 +127,7 @@ class Engine:
         if meta.get("target") == "value":                 # 값 직접 예측 모델이면 지금 값을 빼서 변화량으로 (학습 평가와 같게)
             delta = delta - np.nan_to_num(z[p])[None, :]
         result = {}
-        fresh = pd.Timedelta(minutes=float(self.cfg["data"].get("stale_min_minutes", 15)))
+        fresh = pd.Timedelta(minutes=float(self.cfg["data"].get("forecast_fresh_minutes", 15)))
         for j, metric in enumerate(("co2", "temperature")):
             now_value = frame[metric].loc[:last_label].dropna()
             if now_value.empty or window_ok[j] < 0.75 or metric not in self.models.normalization["values"].get(space, {}):
@@ -232,8 +232,13 @@ class Engine:
         now = now or now_utc()
         raw, last_label = self.read_raw(now)
         freshness = self.sensor_freshness(now)
+        newest = max((f["last_seen"] for f in freshness), default=None)
+        silent_after = float(self.cfg["data"].get("collector_silent_minutes", 5))
+        collector_age = None if newest is None else round((now - pd.Timestamp(newest)).total_seconds() / 60, 1)
+        collector_silent = collector_age is None or collector_age > silent_after   # 어떤 센서도 안 들어옴 = 수집기·브로커 쪽 끊김
         result = {"generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "slot": last_label.strftime("%Y-%m-%dT%H:%M:%SZ"),
                   "models": self.models.summary(),
+                  "collector": {"last_seen": newest, "age_minutes": collector_age, "silent": collector_silent},
                   "spaces": {}}
         clean = None
         if len(raw):
@@ -249,8 +254,11 @@ class Engine:
                      "sensors": {"total": len(stale), "stale": [f["device_id"] for f in stale if f["stale"]],
                                  "last_seen": max((f["last_seen"] for f in stale), default=None)}}
             alerts = []
-            if stale and all(f["stale"] for f in stale) or not stale:
-                alerts.append({"type": "data_gap", "level": "warning", "message": "이 공간의 센서 데이터가 끊김"})
+            if collector_silent:
+                alerts.append({"type": "data_gap", "level": "warning", "scope": "collector",
+                               "message": f"수집 전체가 끊김 (마지막 수신 {collector_age}분 전): 수집기·브로커·네트워크 확인"})
+            elif stale and all(f["stale"] for f in stale) or not stale:
+                alerts.append({"type": "data_gap", "level": "warning", "scope": "space", "message": "이 공간의 센서 데이터가 끊김"})
             elif any(f["stale"] for f in stale):
                 alerts.append({"type": "sensor_gap", "level": "info",
                                "message": f"일부 센서 끊김: {', '.join(entry['sensors']['stale'])}"})

@@ -287,3 +287,19 @@ def test_partial_bundle_then_hot_reload(root, engine, tmp_path):
     shutil.copy(full / "manifest.json", part / "manifest.json")
     assert watcher.check() is True and eng.models.state is not None
     assert eng.run_cycle(NOW)["spaces"]["lab"]["state"]["occupied_probability"] is not None
+
+
+def test_service_runs_without_torch():
+    """보드 A에는 torch가 없다. 서비스가 쓰는 모듈은 torch 없이 불러와져야 한다."""
+    import subprocess
+    import sys
+
+    code = ("import sys\n"
+            "class Block:\n"
+            "    def find_spec(self, name, path, target=None):\n"
+            "        if name == 'torch' or name.startswith('torch.'):\n"
+            "            raise ImportError('torch blocked')\n"
+            "sys.meta_path.insert(0, Block())\n"
+            "import service.engine, service.__main__\n")
+    done = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr

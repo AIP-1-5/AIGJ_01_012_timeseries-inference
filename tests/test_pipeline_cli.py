@@ -85,3 +85,19 @@ def test_bad_config_exits_2(tmp_path, capsys):
                    encoding="utf-8")
     assert main(["preprocess", "--config", str(bad)]) == 2
     assert "최소 < 최대" in capsys.readouterr().err
+
+
+def test_training_refused_on_board(monkeypatch, capsys):
+    """보드(Jetson)에서는 학습 명령을 거부한다 (2026-10-22 팀 결정)."""
+    from pipeline import guard
+
+    monkeypatch.setattr(guard, "on_jetson", lambda: True)
+    monkeypatch.delenv("ALLOW_BOARD_TRAINING", raising=False)
+    from forecast.__main__ import main as forecast_main
+    from state.__main__ import main as state_main
+
+    assert forecast_main(["train", "--kind", "linear"]) == 2
+    assert state_main(["run"]) == 2
+    assert "보드에서는 학습" in capsys.readouterr().err
+    monkeypatch.setenv("ALLOW_BOARD_TRAINING", "1")
+    assert guard.refuse_training_on_board("x") is False

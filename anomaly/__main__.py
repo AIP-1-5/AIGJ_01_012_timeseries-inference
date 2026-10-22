@@ -273,6 +273,10 @@ def main(argv=None):
     except (SettingsError, FileNotFoundError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         return 2
+    from pipeline.guard import refuse_training_on_board
+
+    if args.command in ("train", "all") and refuse_training_on_board("과제 4 오토인코더"):
+        return 2
     steps = {"train": [cmd_train], "calibrate": [cmd_calibrate], "evaluate": [cmd_evaluate],
              "all": [cmd_train, cmd_calibrate, cmd_evaluate]}[args.command]
     for step in steps:

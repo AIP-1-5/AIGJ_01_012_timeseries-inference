@@ -113,6 +113,14 @@ def test_compute_coverage_end_to_end(store):
     assert result.delay_median_seconds == pytest.approx(2.0)
 
 
+def test_report_after_period_end_is_not_stale(store):
+    for i in range(60):
+        store.insert_message([row("A", "temperature", T0 + i * MIN, i)])
+    result = compute_coverage(store, IntervalConfig(default=1), T0, T0 + 60 * MIN, now=T0 + 66 * MIN)
+    series = result.series[0]
+    assert series.age == MIN and not series.stale            # 기간 끝(60분) 기준 1분 전 수신
+
+
 def test_gap_during_collector_outage_is_collector(store):
     store.add_event("connect", at=to_iso(T0 - MIN))
     store.add_event("disconnect", at=to_iso(T0 + 10 * MIN))

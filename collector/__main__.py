@@ -86,6 +86,38 @@ def cmd_export(args, config):
     return export(config, start=args.start, end=args.end, metrics=args.metric, out=args.out)
 
 
+def cmd_merge(args, config):
+    from .report import parse_kst
+    from .store import Store
+    from .timeutil import to_iso
+
+    start = to_iso(parse_kst(args.start)) if args.start else None
+    end = to_iso(parse_kst(args.end)) if args.end else None
+    store = Store(config.storage_path)
+    try:
+        before = store.row_count()
+        scanned, inserted = store.merge_from(args.source, start, end)
+        store.add_event("merge", f"from={Path(args.source).name} scanned={scanned} inserted={inserted} "
+                                 f"range={args.start or '-'}~{args.end or '-'}")
+        print(f"합치기: {args.source} → {config.storage_path}")
+        print(f"  읽은 행 {scanned}, 새로 넣은 행 {inserted} (이미 있던 행은 건너뜀), 전체 {before} → {store.row_count()}")
+    finally:
+        store.close()
+    return EXIT_OK
+
+
+def cmd_snapshot(args, config):
+    from .store import Store
+
+    store = Store(config.storage_path, readonly=True)
+    try:
+        out = store.snapshot(args.out)
+    finally:
+        store.close()
+    print(f"복사본: {out} ({out.stat().st_size / 1e6:.1f} MB). 데이터 파일이니 커밋하지 않는다")
+    return EXIT_OK
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="python -m collector", description="MQTT 센서 데이터 수집기")
     parser.add_argument("--config", default=DEFAULT_CONFIG, help=f"설정 파일 (기본 {DEFAULT_CONFIG})")
@@ -116,6 +148,16 @@ def build_parser():
     p.add_argument("--metric", action="append", help="항목만 고르기 (여러 번 가능)")
     p.add_argument("--out", default="data/export.csv")
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("snapshot", parents=[common], help="돌고 있는 저장소를 한 파일로 안전하게 복사 (다른 보드로 옮길 때)")
+    p.add_argument("--out", default="data/collector-snapshot.db")
+    p.set_defaults(func=cmd_snapshot)
+
+    p = sub.add_parser("merge", parents=[common], help="다른 보드 저장소로 끊긴 구간 메우기 (이미 있는 행은 건너뜀)")
+    p.add_argument("source", help="합칠 저장소 파일 (예: 보드 B에서 snapshot으로 만든 파일)")
+    p.add_argument("--from", dest="start", help="이 시각부터만 (한국 시간, 생략하면 처음부터)")
+    p.add_argument("--to", dest="end", help="이 시각 전까지만 (한국 시간, 포함 안 함)")
+    p.set_defaults(func=cmd_merge)
 
     p = sub.add_parser("check-config", parents=[common], help="설정 점검, 샘플 메시지 해석")
     p.add_argument("--sample", help="해석해 볼 메시지 파일(JSON)")

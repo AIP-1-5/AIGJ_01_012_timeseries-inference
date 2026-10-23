@@ -197,7 +197,7 @@ def build_report(config, store, start, end, now, excluded=()):
     for e in events:
         counts[e["kind"]] = counts.get(e["kind"], 0) + 1
     lines += ["## 수집기 사건", "", ", ".join(f"{k} {v}건" for k, v in sorted(counts.items())) or "사건 없음", ""]
-    notable = [e for e in events if e["kind"] in ("disconnect", "stop", "start", "stale_reconnect", "store_error")]
+    notable = [e for e in events if e["kind"] in ("disconnect", "stop", "start", "stale_reconnect", "store_error", "merge")]
     if notable:
         lines += ["| 시각 | 종류 | 내용 |", "|---|---|---|"]
         lines += [f"| {to_kst_str(datetime.fromisoformat(e['at'].replace('Z', '+00:00')), '%m-%d %H:%M:%S')} | "

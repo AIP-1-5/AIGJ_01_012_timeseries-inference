@@ -54,3 +54,43 @@ def test_event_order_follows_insertion_not_clock(tmp_path):
     assert store.last_event(["start", "connect", "stop"])["kind"] == "connect"
     kinds = [e["kind"] for e in store.events_between("2026-10-21T04:00:00.000Z", "2026-10-21T05:00:00.000Z")]
     assert kinds == ["stop", "start", "connect"]
+
+
+def test_merge_fills_only_missing_rows(tmp_path):
+    """보드 A가 끊긴 동안 보드 B가 받은 메시지로 빈 구간만 채운다. 다시 해도 같다."""
+    a, b = Store(tmp_path / "a.db"), Store(tmp_path / "b.db")
+    for i in range(5):
+        row = make_row(message_key=f"m{i}", measured_at=f"2026-10-23T00:0{i}:10.000Z")
+        b.insert_message([row])
+        if i not in (2, 3):            # 보드 A는 2, 3번째 메시지를 놓쳤다
+            a.insert_message([row])
+    snap = b.snapshot(tmp_path / "b-snapshot.db")
+    assert a.merge_from(snap) == (5, 2)
+    assert a.row_count() == 5
+    assert a.merge_from(snap) == (5, 0)
+    assert a.row_count() == 5
+
+
+def test_merge_respects_time_range(tmp_path):
+    a, b = Store(tmp_path / "a.db"), Store(tmp_path / "b.db")
+    for i in range(5):
+        b.insert_message([make_row(message_key=f"m{i}", measured_at=f"2026-10-23T00:0{i}:10.000Z")])
+    scanned, inserted = a.merge_from(b.snapshot(tmp_path / "s.db"),
+                                     "2026-10-23T00:01:00.000Z", "2026-10-23T00:03:00.000Z")
+    assert (scanned, inserted) == (2, 2)
+
+
+def test_snapshot_opens_readonly_without_wal_files(tmp_path):
+    src = Store(tmp_path / "live.db")
+    src.insert_message([make_row()])
+    snap = src.snapshot(tmp_path / "copy" / "snap.db")
+    assert not (tmp_path / "copy" / "snap.db-wal").exists()
+    assert Store(snap, readonly=True).row_count() == 1
+
+
+def test_merge_refuses_same_file(tmp_path):
+    import pytest
+
+    store = Store(tmp_path / "a.db")
+    with pytest.raises(ValueError):
+        store.merge_from(tmp_path / "a.db")

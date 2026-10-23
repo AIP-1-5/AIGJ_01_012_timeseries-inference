@@ -359,6 +359,8 @@ systemd-run --user --scope -p MemoryMax=2G env EDGE_PYTHON=.venv-gpu/bin/python 
 sudo deploy/install-inference.sh    # systemd 등록 (재부팅 후 자동 시작)
 ```
 
+보드가 끊겼을 때(네트워크·IP 문제), 다른 실습과 같이 쓸 때: [docs/runbook-outage.md](docs/runbook-outage.md)
+
 </details>
 
 <br>

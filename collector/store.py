@@ -128,6 +128,63 @@ class Store:
             self.conn.commit()
         return inserted, duplicate
 
+    def merge_from(self, other_path, start_iso=None, end_iso=None, batch=5000):
+        """다른 수집기 저장소(예: 보드 B)의 측정값을 이 저장소에 합친다. 반환: (읽은 행, 새로 넣은 행).
+
+        두 보드는 같은 브로커에서 같은 메시지를 받으므로 message_key(deduplicationId)가 같다.
+        UNIQUE(message_key, metric)로 이미 있는 행은 건너뛰어서, 이 저장소가 끊겼던 구간만 채워진다.
+        여러 번 실행해도 결과가 같다. received_at은 원래 받은 보드의 값을 그대로 둔다.
+        """
+        other = Store(other_path, readonly=True)
+        try:
+            if Path(other_path).resolve() == self.path.resolve():
+                raise ValueError("같은 저장소끼리는 합칠 수 없다")
+            sql = f"SELECT {', '.join(MEASUREMENT_COLUMNS)} FROM measurements"
+            where, params = [], []
+            if start_iso:
+                where.append("measured_at >= ?")
+                params.append(start_iso)
+            if end_iso:
+                where.append("measured_at < ?")
+                params.append(end_iso)
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+            insert = (
+                f"INSERT OR IGNORE INTO measurements ({', '.join(MEASUREMENT_COLUMNS)}) "
+                f"VALUES ({', '.join('?' for _ in MEASUREMENT_COLUMNS)})"
+            )
+            cur = other.conn.execute(sql, params)
+            scanned = inserted = 0
+            while True:
+                rows = [tuple(r) for r in cur.fetchmany(batch)]
+                if not rows:
+                    break
+                # 묶음마다 짧게 잠그고 커밋해서, 돌고 있는 수집기의 저장을 오래 막지 않는다
+                with self._lock:
+                    before = self.conn.total_changes
+                    self.conn.executemany(insert, rows)
+                    inserted += self.conn.total_changes - before
+                    self.conn.commit()
+                scanned += len(rows)
+        finally:
+            other.close()
+        return scanned, inserted
+
+    def snapshot(self, out_path):
+        """돌고 있는 저장소를 안전하게 한 파일로 복사한다(SQLite 백업 API, WAL 내용 포함)."""
+        out_path = Path(out_path)
+        if out_path.resolve() == self.path.resolve():
+            raise ValueError("원본과 같은 경로로 복사할 수 없다")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        target = sqlite3.connect(out_path)
+        try:
+            self.conn.backup(target)
+            # 복사본은 한 파일로 다니므로 WAL을 끈다 (읽기 전용으로 열 때 -wal/-shm 파일이 필요 없게)
+            target.execute("PRAGMA journal_mode=DELETE")
+        finally:
+            target.close()
+        return out_path
+
     def add_event(self, kind, detail=None, at=None):
         with self._lock:
             self.conn.execute(

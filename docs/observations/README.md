@@ -8,3 +8,7 @@
 - 개인 이름은 적지 않는다. 사람 수만 적는다
 - 채점: 보드 A의 `data/collector.db`를 복사해 와서 `python -m state observe --db <복사한 collector.db>` → `docs/reports/005-observation.md`
   (관찰한 시간의 실시간 센서로 모델·규칙을 판정해 비교한다. 학습은 하지 않는다)
+
+## 난방 기록 (`heating.csv`)
+
+실습실 난방을 켜고 끈 시각, 설정 온도, 창문 여부. 과제 3·4·5 결과를 해석할 때만 쓰고 학습·모델 선택에는 쓰지 않는다.

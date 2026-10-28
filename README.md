@@ -30,7 +30,7 @@
 
 | 대시보드 | 결과 형식 | 제출 자료 |
 |:---:|:---:|:---:|
-| `http://100.113.228.46:8080` (Tailscale) | [docs/interface.md](docs/interface.md) | [final-presentation.pptx](docs/presentation/final-presentation.pptx) |
+| `http://100.113.228.46:8080` (Tailscale) | [docs/interface.md](docs/interface.md) | [결과 보고서 PPT](docs/submission/final-report.pptx) · [PDF](docs/submission/final-report.pdf) |
 
 <br>
 
@@ -379,7 +379,7 @@ sudo deploy/install-inference.sh    # systemd 등록 (재부팅 후 자동 시�
 | 6 | [006-pretrained](docs/reports/006-pretrained.md) | [006-comparison](docs/reports/006-comparison.md) |
 | 7 | [007-edge](docs/reports/007-edge.md) | [007-comparison](docs/reports/007-comparison.md) |
 | 8 | [008-service](docs/reports/008-service.md) | [docs/interface.md](docs/interface.md) |
-| 전체 | [000-final-report](docs/reports/000-final-report.md) | [제출 PPT](docs/presentation/final-presentation.pptx) |
+| 전체 | [000-final-report](docs/reports/000-final-report.md) | [결과 보고서 PPT](docs/submission/final-report.pptx) · [PDF](docs/submission/final-report.pdf) |
 
 <br>
 
@@ -395,7 +395,7 @@ sudo deploy/install-inference.sh    # systemd 등록 (재부팅 후 자동 시�
 ├── service/                                과제 8 상시 추론 서비스 (+ dashboard.html)
 ├── config/      artifacts/                 설정 · 과제 간 공유 약속 (분할 · 정규화 · 평가 시점)
 ├── deploy/                                 systemd 서비스와 설치 스크립트
-├── docs/        reports/ · presentation/   결과 보고서 · 제출 자료 · 결과 형식 문서
+├── docs/        reports/ · submission/     결과 보고서 · 제출 자료 · 결과 형식 문서
 ├── specs/                                  과제별 spec · plan · tasks (Spec Kit)
 └── tests/                                  단위 시험
 ```
